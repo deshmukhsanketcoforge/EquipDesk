@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Required merge gate. Deterministic, no credentials. Runs exactly what
+  # developers run locally: ruff + mypy + pytest (with coverage) against the
+  # compose Postgres.
+  test:
+    name: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Build test image
+        run: docker compose build test
+
+      - name: Lint, type-check and test
+        run: docker compose run --rm test
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: coverage
+          path: coverage.xml
+          if-no-files-found: ignore
+
+      - name: Tear down
+        if: always()
+        run: docker compose --profile test down --volumes

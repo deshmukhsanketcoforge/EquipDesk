@@ -6,7 +6,7 @@ W7 lab (CoForge FDE Training): build, from scratch, an internal **IT equipment r
 Employees send natural-language requests ("I need a second monitor"). A **ReAct agent** uses an **MCP server's tools** to look up the employee and policy, then **approves, denies, or escalates** (ambiguous → human review, never guess). A **reflection** step checks each draft before finalizing. Everything ships through a **CI pipeline** running unit tests. Repo is pre-implementation: README, .gitignore, this plan, `CLAUDE.md` and the lab brief (`Project Requirements.pdf`).
 
 Working agreements (from the user):
-- **Linear** tracks work (solo, simple tickets, no milestones).
+- **Linear** tracks work (solo, simple tickets in one `EquipDesk` project, no milestones).
 - **CI + Docker exist from the first ticket**; CI guards every later change.
 - **TDD for every ticket.**
 - **Branch protection on `main`** (no direct pushes); CI runs on PRs into `main` and on pushes to `main` (post-merge).
@@ -60,7 +60,7 @@ Graded (100): requirements doc 8 · one-tool server/client proof 7 · four MCP t
 
 | # | Decision | Alternatives rejected | Why / risk handled |
 |---|---|---|---|
-| D1 | Python 3.12, **FastAPI** backend, official `mcp` SDK `FastMCP` mounted via `streamable_http_app()` at `/mcp` | stdio-only server; separate MCP process calling REST | Needed for Swagger + shared logic with minimal moving parts. Risk: mounting the MCP app inside FastAPI requires wiring its session-manager lifespan into FastAPI's lifespan (known gotcha) → spike done in EQP-1 with a trivial `ping` tool, before any business logic. Fallback if blocked: run MCP app as its own uvicorn port in the same image, same service layer. |
+| D1 | Python 3.12, **FastAPI** backend, official `mcp` SDK (2.x) `MCPServer` (v1's `FastMCP`, renamed in 2.x) mounted via `streamable_http_app()` at `/mcp` | stdio-only server; separate MCP process calling REST | Needed for Swagger + shared logic with minimal moving parts. Risk: mounting the MCP app inside FastAPI requires wiring its session-manager lifespan into FastAPI's lifespan (known gotcha) → spike done in EQP-1 with a trivial `ping` tool, before any business logic. Fallback if blocked: run MCP app as its own uvicorn port in the same image, same service layer. |
 | D2 | Logic in **service layer** + repositories; adapters (REST, MCP) are thin | Logic in route/tool functions | Lab: plain-function-first. TDD seam. One behavior, two interfaces, no drift. |
 | D3 | Policy tools **deterministic**; LLM only does language (parse item, spot exception claims) | LLM judges policy | Testable/auditable. Spec's `check_request_eligibility(employee_id, item)` has no `reason` arg, so exception claims can't reach it → the **agent** spots them in its Thought step and escalates; tool stays pure. |
 | D4 | **Closed, versioned enums** for verdicts and reason codes (see §4) — `StrEnum` in one module `server/codes.py`; Pydantic response models use the enum type; OpenAPI/MCP schemas therefore list the allowed values; a test asserts the exact set; adding a code requires updating enum + requirements doc + a test | Free-text reasons | **Answer to Q1: yes, fixed.** Agents/tests/dashboards can switch on codes. Human-readable `explanation` accompanies each code. |
@@ -73,7 +73,7 @@ Graded (100): requirements doc 8 · one-tool server/client proof 7 · four MCP t
 | D11 | **PostgreSQL 16 + SQLAlchemy 2.0 + Alembic**, seeded by an idempotent `scripts/seed.py` (also run in demo/CI). Tables: `employees`, `equipment_assets` (history), `catalog_items` (+aliases, unit cost), `role_policies` (role, item, entitled, max_units, refresh_months), `review_tickets` (id, employee, request, reason_code, reason, status, created_at). Tests: service/rules unit tests on an in-memory fake repository (fast, no DB); repository + API integration tests on real Postgres via the compose `db` service, **locally and in CI with the same `docker compose run --rm test` command** (no separate GH Actions service container to keep in sync), each test in a rolled-back transaction | JSON files (rev 2); SQLite | **Answer to Q7.** Policies in DB = editable without redeploy; tickets get real persistence/audit. Postgres matches "enterprise style" and our compose/CI already run containers. |
 | D12 | **CI** (GitHub Actions), triggers `pull_request` → `main`, `push` → `main`, `workflow_dispatch`; `concurrency` group cancels superseded runs. **Job 1 `test`** (required gate, no credentials by default): `docker compose run --rm test` = ruff + mypy + pytest(+cov) against the compose Postgres. **Job 2 `live-eval`** (uses `FOUNDRY_*` secrets; skipped by path filter when only docs change): brings up compose and runs every case in `evals/cases.yaml` (§7, cases A–G) **k = 3 times** at temperature 0. **Critical assertions — any single failing run fails the job:** A ends APPROVE in 3/3; B ends DENY in 3/3; no run APPROVEs or DENYs a case whose expected decision is ESCALATE (a wrong automatic decision is the dangerous error, a wrong escalation only costs a reviewer minutes); case G is never APPROVE; no final decision breaches D9 (that would mean the guardrail code is broken). **Non-critical assertions:** a run *fully matches* when decision, `EscalationCode` (from the case's allowed set) and observed tool `ReasonCode` all match; each non-critical case needs ≥2/3 full matches, and ≥90% of all case-runs must fully match. A `GUARDRAIL_OVERRIDE` escalation is a safe catch, so it counts as a non-critical miss (on A/B it is critical, since they must not escalate). k and thresholds live in `evals/cases.yaml`. Artifacts: traces, per-case pass^3, token/cost summary. Fork PRs get no secrets → job skipped (solo repo) | Live LLM in the required gate; one flat "≥5 of 6" threshold (rev 4); retry-once | **Answer to Q3**, aligned with common practice: deterministic offline suite as the required gate; live model evals as a separate tier with repeated trials, per-case minimums, zero tolerance for critical behaviours and a suite floor (promptfoo/Braintrust/OpenRouter CI guides; Anthropic "Demystifying evals for AI agents" on pass^k for reliability). Repeats replace the retry-once rule because a retry hides how often a case flakes. `live-eval` becomes a required check only after a few stable runs. Cost: ~21 runs × ~6 LLM calls per CI run. |
 | D13 | **Docker from ticket 1**: multi-stage `Dockerfile` (`base` → `test` → `runtime`), `docker-compose.yml` (`db`, `api`, `agent` — default command runs the demo/eval — and `test`), healthchecks, `.dockerignore`. Secrets only via env/GitHub secret, never baked in | Venv-only | Same environment locally and in CI. |
-| D14 | One ticket = one branch = one PR = one green CI run; branch name from Linear (`eqp-N-…`) | Direct commits | Regression guarantee; matches branch protection. |
+| D14 | One ticket = one branch = one PR = one green CI run; the user names branches | Direct commits | Regression guarantee; matches branch protection. Solo project: the user reviews each PR themselves before merging (no second approver). |
 | D15 | **TDD loop** (§9) for every ticket: failing tests are written and run locally (red confirmed) before the implementation; nothing is committed while red; the PR carries tests + impl written test-first | Test-after | CI stays green on pushed branches. |
 | D16 | Employee ID is a separate agent input (`--employee-id`) next to the free-text request | Parse from prose | In a real system the requester's identity comes from authentication, not from what they type, so taking it from text would be both less realistic and an injection risk. Unknown ID is still an escalation case (F). |
 
@@ -155,19 +155,19 @@ Example — case B (E1002, cooldown):
 
 ## 9. TDD & CI/Docker workflow (every ticket)
 
-1. Ticket → In Progress; branch `eqp-N-…`.
+1. Ticket → In Progress; the user creates the branch.
 2. Write failing tests from the ticket's acceptance list; `docker compose run --rm test` → confirm red for the right reason.
 3. Minimal implementation → green; refactor; `ruff` + `mypy` clean.
 4. Run the **full** suite in Docker (regression).
-5. Claude stops here and summarizes the change. **The user** reviews, commits, pushes and opens the PR titled `EQP-N …`; Actions `test` (and `live-eval` once it exists) must be green; the user merges to `main`; the post-merge run on `main` verifies again.
+5. Claude stops here and summarizes the change. **The user** reviews, commits, pushes and opens the PR titled `EQP-N …`; Actions `test` (and `live-eval` once it exists) must be green; the user self-reviews the PR and merges to `main`; the post-merge run on `main` verifies again.
 
 ## 10. Linear tickets (flat, no milestones)
 
-**Setup:** one Linear team (key assumed `EQP`), no projects/milestones/cycles. Workflow Todo → In Progress → In Review → Done. Labels: `infra`, `server`, `agent`, `docs`. Linear↔GitHub integration: PR open → In Review, merge → Done. Dependencies via "blocked by". Each ticket has acceptance criteria written as tests + the rubric/deliverable it feeds.
+**Setup:** Linear team `SAN` (Sanket Personal), project **EquipDesk**; no milestones/cycles. The 14 tickets are **SAN-28…SAN-41**, titled `EQP-N: …` (EQP-N = SAN-(27+N), e.g. EQP-1 = SAN-28, EQP-14 = SAN-41). Workflow Todo → In Progress → Done; no "In Review" state, because this is a solo project and the user reviews their own PRs before merging. Labels: `infra`, `server`, `agent`, `docs`. Dependencies via "blocked by". Each ticket has acceptance criteria written as tests + the rubric/deliverable it feeds.
 
 | ID | Title | Label | Blocked by | Acceptance (test-first) | Feeds |
 |---|---|---|---|---|---|
-| EQP-1 | Scaffold repo, Docker, compose, CI, trivial MCP server | infra | – | Smoke tests green via `docker compose run --rm test`: FastAPI `/health` 200 and `/docs` 200; MCP app mounted at `/mcp` with a trivial `ping` tool, and an in-process MCP client lists and calls it (brief's suggested approach step 1; de-risks the D1 lifespan wiring before any business logic). Actions `test` job on PR→main, push→main and `workflow_dispatch` runs the same command, with `concurrency` cancel-in-progress and pinned action versions; lockfile; ruff + mypy + pre-commit; coverage gate configured; Dependabot; PR template; Makefile (`make test/up/seed/demo`) | Pipeline #9 base |
+| EQP-1 | Scaffold repo, Docker, compose, CI, trivial MCP server | infra | – | Smoke tests green via `docker compose run --rm test`: FastAPI `/health` 200 and `/docs` 200; MCP app mounted at `/mcp` with a trivial `ping` tool, and an in-process MCP client lists and calls it (brief's suggested approach step 1; de-risks the D1 lifespan wiring before any business logic). Actions `test` job on PR→main, push→main and `workflow_dispatch` runs the same command, with `concurrency` cancel-in-progress and pinned action versions; lockfile; ruff + mypy + pre-commit; coverage gate configured; PR template; Makefile (`make test/up/seed/demo`) | Pipeline #9 base |
 | EQP-2 | Requirements doc, policy rules, enums | docs | 1 | `server/codes.py` enums + test asserting exact sets; doc lists every rule `R-xx` ↔ test mapping | Req. doc #1 |
 | EQP-3 | DB schema, migrations, seed, repositories | server | 1, 2 | Alembic upgrade on empty DB works; seed idempotent (run twice = same rows) and contains every §5 employee (E1001–E1009; E9999 absent); seed dates relative to today; repo tests on real Postgres via compose, each in a rolled-back transaction; in-memory fake repo passes the same contract tests | Data layer |
 | EQP-4 | Service: `get_employee_info` | server | 3 | Found → role, tenure, equipment on file; not found → error data `NOT_FOUND` + `reason_code: EMPLOYEE_NOT_FOUND`; malformed id → `INVALID_INPUT`; never raises | Tool 1 |
@@ -195,12 +195,12 @@ Example — case B (E1002, cooldown):
 - `ruff` (lint+format) + `mypy` (basic mode on `server/`, `agent/`); `pre-commit` running ruff.
 - `/health` + compose healthchecks; structured JSON logs with request-id.
 - Coverage gate (≥90% on `server/`) in CI; test artifacts + traces uploaded.
-- Makefile (`make test`, `make up`, `make demo`), PR template, Dependabot for pip/Docker/Actions.
+- Makefile (`make test`, `make up`, `make demo`), PR template.
 - Token/latency capture per LLM step in traces (cheap cost visibility).
-- CI hygiene: `concurrency` cancel-in-progress, path filter so docs-only PRs skip `live-eval`, actions pinned to versions (Dependabot bumps them), `.env` git-ignored (already) with `.env.example` committed.
+- CI hygiene: `concurrency` cancel-in-progress, path filter so docs-only PRs skip `live-eval`, actions pinned to exact versions, `.env` git-ignored (already) with `.env.example` committed.
 - Short ADR note = §3 decision table copied into `docs/decisions.md`.
 
-**Explicitly defer (mention in README as "next steps"):** authN/Z on the API, OpenTelemetry/metrics stack, rate limiting, K8s/Helm, human-review UI, retries/circuit breakers beyond one LLM retry, multi-tenant policies.
+**Explicitly defer (mention in README as "next steps"):** automated dependency updates (Dependabot; the project is not maintained after delivery), authN/Z on the API, OpenTelemetry/metrics stack, rate limiting, K8s/Helm, human-review UI, retries/circuit breakers beyond one LLM retry, multi-tenant policies.
 
 ## 12. Deliverable mapping (single PDF, ordered)
 
@@ -221,6 +221,6 @@ Bonus screenshot: Swagger UI at `/docs`.
 
 1. **Foundry details:** the user will supply endpoint, deployment name and key when EQP-9 needs them. Until then the code ships the config scaffolding only (`pydantic-settings` fields, `.env.example` with placeholders, GitHub secret names `FOUNDRY_API_KEY`, `FOUNDRY_ENDPOINT`, `FOUNDRY_MODEL_DEPLOYMENT`) and a clear startup error if they are missing. Everything before EQP-9 runs without them, and the CI `test` job runs without them by default (D12).
 2. **Branch protection on `main`:** already configured by the user.
-3. **Linear:** connector added by the user and now visible to Claude. Tickets EQP-1…14 are created there from §10 when the user asks. Team key is read from Linear (the `EQP` prefix in this plan is a placeholder).
+3. **Linear:** done. Tickets EQP-1…14 exist as SAN-28…SAN-41 in the `EquipDesk` project (team `SAN`), with labels and "blocked by" links per §10.
 4. **Git:** Claude never commits or pushes. The user reviews each ticket's work and does commit/push/PR. Claude stops after local green (tests + lint in Docker) and hands over a summary of the changes.
 5. **Agreed:** the rest of the plan as written.

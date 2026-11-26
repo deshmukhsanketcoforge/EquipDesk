@@ -19,7 +19,7 @@ W7 CoForge lab: an IT equipment-request handler. A ReAct agent (Claude Sonnet 5.
 
 ## Architecture (big picture)
 
-- **One FastAPI backend, one service layer, two adapters.** Business logic lives in plain service functions and repositories. The REST routes (`/v1/...`, Swagger) and the MCP tools (mounted at `/mcp` via `FastMCP.streamable_http_app()`) are thin wrappers over the same functions, so they must never diverge. Wiring the MCP app's session-manager lifespan into FastAPI's lifespan is a known gotcha.
+- **One FastAPI backend, one service layer, two adapters.** Business logic lives in plain service functions and repositories. The REST routes (`/v1/...`, Swagger) and the MCP tools (mounted at `/mcp` via `MCPServer.streamable_http_app()`; mcp SDK 2.x, where v1's `FastMCP` was renamed) are thin wrappers over the same functions, so they must never diverge. Wiring the MCP app's session-manager lifespan into FastAPI's lifespan is a known gotcha.
 - **The agent talks only MCP** (Streamable HTTP client), never REST or the DB directly.
 - **Policy decisions are deterministic and live in the tools.** The LLM handles only language: parsing the item and spotting exception claims such as "coffee spill". The eligibility tool has no `reason` argument, so the agent itself escalates exception claims.
 - **Closed enums** in `server/codes.py` (`Verdict`, tool `ReasonCode`, agent `EscalationCode`, `ErrorCode`). Adding a code requires updating the enum, `docs/requirements.md` and a test. Tool errors are returned as data, never raised, and domain errors also carry the domain `ReasonCode` (e.g. `EMPLOYEE_NOT_FOUND`).
