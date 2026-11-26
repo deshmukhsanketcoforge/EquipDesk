@@ -1,0 +1,56 @@
+[project]
+name = "equipdesk"
+version = "0.1.0"
+description = "IT equipment request handler: ReAct agent over an MCP server (W7 CoForge lab)"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.165.0",
+    "httpx>=0.29.0",
+    "mcp>=2.3.0",
+    "pydantic>=2.14.4",
+    "pydantic-settings>=2.16.3",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.1",
+    "pre-commit>=4.7.0",
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.6",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["server", "agent", "tests"]
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+enable_error_code = ["deprecated"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.coverage.run]
+branch = true
+source = ["server"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

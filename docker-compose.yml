@@ -1,0 +1,65 @@
+name: equipdesk
+
+x-database-url: &database-url postgresql+psycopg://equipdesk:equipdesk@db:5432/equipdesk
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: equipdesk
+      POSTGRES_PASSWORD: equipdesk # local/CI only; never a real credential
+      POSTGRES_DB: equipdesk
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U equipdesk -d equipdesk"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      target: runtime
+    environment:
+      DATABASE_URL: *database-url
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Runs the live demo against the real model (EQP-9 onward). Needs FOUNDRY_* in the
+  # shell environment or a local .env. Not started by a plain `docker compose up`.
+  agent:
+    build:
+      context: .
+      target: runtime
+    profiles: ["demo"]
+    command: ["python", "-m", "agent"]
+    environment:
+      MCP_URL: http://api:8000/mcp
+      FOUNDRY_API_KEY: ${FOUNDRY_API_KEY:-}
+      FOUNDRY_ENDPOINT: ${FOUNDRY_ENDPOINT:-}
+      FOUNDRY_MODEL_DEPLOYMENT: ${FOUNDRY_MODEL_DEPLOYMENT:-}
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # The full gate: ruff + mypy + pytest with coverage. Same command locally and in CI:
+  #   docker compose run --rm test
+  test:
+    build:
+      context: .
+      target: test
+    profiles: ["test"]
+    environment:
+      DATABASE_URL: *database-url
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
