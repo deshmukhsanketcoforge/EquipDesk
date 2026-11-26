@@ -50,10 +50,12 @@ To call the MCP `ping` tool from Python (needs the local environment; run with `
 import asyncio
 from mcp import Client
 
+
 async def main() -> None:
     async with Client("http://localhost:8000/mcp") as client:
         result = await client.call_tool("ping", {})
         print(result.content[0].text)  # pong
+
 
 asyncio.run(main())
 ```
@@ -100,7 +102,7 @@ tests/             pytest suite (runs in Docker)
 scripts/check.sh   the full lint + type + test check
 Dockerfile         multi-stage: base -> test -> runtime
 docker-compose.yml services: db, api, agent (profile "demo"), test (profile "test")
-.github/           CI workflow and PR template
+.github/           CI workflow
 PLAN.md            design, decisions, tickets, deliverables
 ```
 

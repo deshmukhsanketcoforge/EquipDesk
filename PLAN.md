@@ -167,7 +167,7 @@ Example — case B (E1002, cooldown):
 
 | ID | Title | Label | Blocked by | Acceptance (test-first) | Feeds |
 |---|---|---|---|---|---|
-| EQP-1 | Scaffold repo, Docker, compose, CI, trivial MCP server | infra | – | Smoke tests green via `docker compose run --rm test`: FastAPI `/health` 200 and `/docs` 200; MCP app mounted at `/mcp` with a trivial `ping` tool, and an in-process MCP client lists and calls it (brief's suggested approach step 1; de-risks the D1 lifespan wiring before any business logic). Actions `test` job on PR→main, push→main and `workflow_dispatch` runs the same command, with `concurrency` cancel-in-progress and pinned action versions; lockfile; ruff + mypy + pre-commit; coverage gate configured; PR template; Makefile (`make test/up/seed/demo`) | Pipeline #9 base |
+| EQP-1 | Scaffold repo, Docker, compose, CI, trivial MCP server | infra | – | Smoke tests green via `docker compose run --rm test`: FastAPI `/health` 200 and `/docs` 200; MCP app mounted at `/mcp` with a trivial `ping` tool, and an in-process MCP client lists and calls it (brief's suggested approach step 1; de-risks the D1 lifespan wiring before any business logic). Actions `test` job on PR→main, push→main and `workflow_dispatch` runs the same command, with `concurrency` cancel-in-progress and pinned action versions; lockfile; ruff + mypy + pre-commit; coverage gate configured; Makefile (`make test/up/seed/demo`) | Pipeline #9 base |
 | EQP-2 | Requirements doc, policy rules, enums | docs | 1 | `server/codes.py` enums + test asserting exact sets; doc lists every rule `R-xx` ↔ test mapping | Req. doc #1 |
 | EQP-3 | DB schema, migrations, seed, repositories | server | 1, 2 | Alembic upgrade on empty DB works; seed idempotent (run twice = same rows) and contains every §5 employee (E1001–E1009; E9999 absent); seed dates relative to today; repo tests on real Postgres via compose, each in a rolled-back transaction; in-memory fake repo passes the same contract tests | Data layer |
 | EQP-4 | Service: `get_employee_info` | server | 3 | Found → role, tenure, equipment on file; not found → error data `NOT_FOUND` + `reason_code: EMPLOYEE_NOT_FOUND`; malformed id → `INVALID_INPUT`; never raises | Tool 1 |
@@ -195,7 +195,7 @@ Example — case B (E1002, cooldown):
 - `ruff` (lint+format) + `mypy` (basic mode on `server/`, `agent/`); `pre-commit` running ruff.
 - `/health` + compose healthchecks; structured JSON logs with request-id.
 - Coverage gate (≥90% on `server/`) in CI; test artifacts + traces uploaded.
-- Makefile (`make test`, `make up`, `make demo`), PR template.
+- Makefile (`make test`, `make up`, `make demo`). (No PR template: PR descriptions are written with the user's `pr-description` skill.)
 - Token/latency capture per LLM step in traces (cheap cost visibility).
 - CI hygiene: `concurrency` cancel-in-progress, path filter so docs-only PRs skip `live-eval`, actions pinned to exact versions, `.env` git-ignored (already) with `.env.example` committed.
 - Short ADR note = §3 decision table copied into `docs/decisions.md`.
