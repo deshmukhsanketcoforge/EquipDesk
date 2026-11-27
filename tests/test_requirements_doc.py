@@ -3,7 +3,7 @@
 - Every code in server/codes.py is documented, and the doc lists no unknown code.
 - Rule IDs (R-01, R-02, ...) are unique and sequential.
 - Every rule names the tests that cover it; any test file it names exists.
-- Every reason and escalation code is produced by at least one rule.
+- Every reason and escalation code is the outcome of at least one rule.
 """
 
 import re
@@ -51,6 +51,11 @@ def test_rule_ids_are_unique_and_sequential(doc: str) -> None:
     assert ids == [f"R-{n:02d}" for n in range(1, len(ids) + 1)]
 
 
+def test_every_rule_row_has_rule_outcome_and_tests_columns(doc: str) -> None:
+    for rule_id, cells in _rules(doc):
+        assert len(cells) == 3, f"{rule_id} should have Rule, Outcome and Tests columns"
+
+
 def test_every_rule_names_its_tests(doc: str) -> None:
     for rule_id, cells in _rules(doc):
         tests_cell = cells[-1]
@@ -62,6 +67,6 @@ def test_every_rule_names_its_tests(doc: str) -> None:
 @pytest.mark.parametrize(
     "code", sorted({c.value for c in ReasonCode} | {c.value for c in EscalationCode})
 )
-def test_every_reason_and_escalation_code_comes_from_a_rule(doc: str, code: str) -> None:
-    rule_text = " ".join(" ".join(cells) for _, cells in _rules(doc))
-    assert f"`{code}`" in rule_text, f"no rule produces {code}"
+def test_every_reason_and_escalation_code_is_a_rule_outcome(doc: str, code: str) -> None:
+    outcomes = " ".join(cells[1] for _, cells in _rules(doc))
+    assert f"`{code}`" in outcomes, f"no rule has {code} as its outcome"

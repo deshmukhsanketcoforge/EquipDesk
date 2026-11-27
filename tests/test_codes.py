@@ -42,10 +42,6 @@ def test_error_code_values() -> None:
     assert {c.value for c in ErrorCode} == {"INVALID_INPUT", "NOT_FOUND", "INTERNAL"}
 
 
-def test_every_reason_code_maps_to_exactly_one_verdict() -> None:
-    assert set(REASON_VERDICT) == set(ReasonCode)
-
-
 def test_reason_codes_are_grouped_by_verdict() -> None:
     by_verdict = {
         verdict: {code.value for code, v in REASON_VERDICT.items() if v is verdict}

@@ -99,7 +99,7 @@ server/            FastAPI backend
   config.py        settings from environment variables
   codes.py         fixed code sets: verdicts, reason, escalation and error codes
 docs/
-  requirements.md  requirements, policy rules (R-01 to R-25), codes, worked examples
+  requirements.md  requirements, policy rules (R-01 to R-26), codes, worked examples
 agent/             ReAct agent (placeholder until EQP-9)
 tests/             pytest suite (runs in Docker)
 scripts/check.sh   the full lint + type + test check
