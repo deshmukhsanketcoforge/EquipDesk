@@ -12,7 +12,7 @@ Work is tracked as tickets EQP-1 to EQP-14 (Linear project EquipDesk).
 
 | Done | Still to come |
 |---|---|
-| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py`<br>**EQP-3:** PostgreSQL schema with Alembic migrations, idempotent demo seed, and repositories (Postgres + in-memory)<br>**EQP-4, EQP-5:** `get_employee_info` as a service, exposed over MCP and REST, with a smoke client<br>**EQP-6:** `get_policy_limits` (service, REST, MCP)<br>**EQP-7:** `check_request_eligibility` (service, REST, MCP): rules R-01 to R-09<br>**EQP-8:** `flag_for_human_review` (service, REST, MCP): idempotent review tickets<br>**EQP-9:** LLM client for Claude Opus 5.5 (fast) on Azure AI Foundry, the agent's MCP client, and a one-call proof (`make one-call`)<br>**EQP-10:** the ReAct loop (Thought → Action → Observation, at most 8 tool steps) with JSON and Markdown traces (`make ask`)<br>**EQP-11:** the decision JSON and the guardrails: an approve, deny or escalate the tool results don't support becomes a forced escalation<br>**EQP-12:** reflection on every draft (a deterministic claim-vs-observation checker plus an LLM critic, at most one revision) and `--seed-flawed-draft` to show a catch, labelled SEEDED<br>**EQP-13:** the demo and eval cases A–G in [evals/cases.yaml](evals/cases.yaml), the demo run (`make demo`) and the `live-eval` CI job, which runs every case 3 times against the real model and scores the runs | Evidence pack (EQP-14) |
+| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py`<br>**EQP-3:** PostgreSQL schema with Alembic migrations, idempotent demo seed, and repositories (Postgres + in-memory)<br>**EQP-4, EQP-5:** `get_employee_info` as a service, exposed over MCP and REST, with a smoke client<br>**EQP-6:** `get_policy_limits` (service, REST, MCP)<br>**EQP-7:** `check_request_eligibility` (service, REST, MCP): rules R-01 to R-09<br>**EQP-8:** `flag_for_human_review` (service, REST, MCP): idempotent review tickets<br>**EQP-9:** LLM client for Claude Opus 5.5 (fast) on Azure AI Foundry, the agent's MCP client, and a one-call proof (`make one-call`)<br>**EQP-10:** the ReAct loop (Thought → Action → Observation, at most 8 tool steps) with JSON and Markdown traces (`make ask`)<br>**EQP-11:** the decision JSON and the guardrails: an approve, deny or escalate the tool results don't support becomes a forced escalation<br>**EQP-12:** reflection on every draft (a deterministic claim-vs-observation checker plus an LLM critic, at most one revision) and `--seed-flawed-draft` to show a catch, labelled SEEDED<br>**EQP-13:** the demo and eval cases A–G in [evals/cases.yaml](evals/cases.yaml), the demo run (`make demo`) and the `live-eval` CI job, which runs every case 3 times against the real model and scores the runs<br>**EQP-14:** the evidence pack: the [decision record](docs/decisions.md), the committed API contract [openapi.json](openapi.json) with a drift test, and the [submission checklist](docs/submission-checklist.md) | Nothing: see [Next steps](#next-steps) for deliberately deferred work |
 
 ## Prerequisites
 
@@ -32,10 +32,21 @@ Then point your editor at `.venv/bin/python` (in VS Code: Command Palette → "P
 
 ## Quick start
 
+From a fresh clone, with only Docker:
+
 ```sh
 make up      # start Postgres and the API (applies migrations), wait until both are healthy
 make seed    # load the catalog, policies and demo employees (dates relative to today)
 ```
+
+Without `make`, the same two steps are:
+
+```sh
+docker compose up --build --detach --wait
+docker compose exec api python -m server.db.seed
+```
+
+`docker compose up` without `--detach` works too, and keeps the logs in the terminal (seed from a second terminal). If port 8000 is taken, export another port for the whole shell session, so every later `docker compose` and `make` command uses it too: `export API_PORT=8001` (or add `API_PORT=8001` to `.env`). Setting it for one command only would let the next one recreate the API on 8000. No `.env` is needed for the API; only the agent commands below need the `FOUNDRY_*` values.
 
 | URL | What it is |
 |---|---|
@@ -130,6 +141,7 @@ After changing dependencies in `pyproject.toml`, run `uv lock` and rebuild the i
 | `make one-call` | One hardcoded request, one tool call, on the real model (needs `FOUNDRY_*`, see below; `ARGS='--employee-id E1003 --request "..."'` changes the request) |
 | `make ask` | One request through the full ReAct loop on the real model, printing the trace (`ARGS='--employee-id E1003 --request "..."'`) |
 | `make demo` | Demo cases A to F on the real model, once each, with traces and a summary in `artifacts/traces/` (after `make seed`; `ARGS='--case B --seed-flawed-draft'` runs one case) |
+| `make openapi` | Re-export [openapi.json](openapi.json) after an API change; `tests/test_openapi.py` fails until you do |
 | `make eval` | Live eval: every case 3 times on the real model, scored, report in `artifacts/eval/` (after `make seed`; billed) |
 
 ## Project layout
@@ -151,6 +163,9 @@ server/            FastAPI backend
 migrations/        Alembic migrations
 docs/
   requirements.md  requirements, policy rules (R-01 to R-26), codes, worked examples
+  decisions.md     architecture decisions (copy of PLAN.md §3)
+  submission-checklist.md  the 9 deliverables and where each screenshot comes from
+openapi.json       the REST API contract, exported from the app (make openapi)
 agent/             the agent (talks to the backend only through MCP)
   config.py        FOUNDRY_* settings, with a clear error when any is missing
   llm.py           LLMClient interface and the Foundry client (Claude Opus 5.5 fast)
@@ -168,6 +183,7 @@ evals/
 tests/             pytest suite (runs in Docker)
 scripts/
   check.sh         the full lint + type + test check
+  export_openapi.py  writes openapi.json (make openapi)
   smoke_client.py  one-tool MCP client proof (make smoke)
 Dockerfile         multi-stage: base -> test -> runtime
 docker-compose.yml services: db, api, agent (profile "demo"), test (profile "test")
@@ -190,6 +206,28 @@ The `live-eval` job runs after `test`. It starts `db` and `api`, seeds the demo 
   ```sh
   uv run pre-commit install
   ```
+
+## Documentation
+
+- [docs/requirements.md](docs/requirements.md): requirements and the testable policy rules, each with the tests that cover it.
+- [docs/decisions.md](docs/decisions.md): the architecture decisions, with the alternatives rejected and why.
+- [openapi.json](openapi.json): the REST API contract. Swagger UI at http://localhost:8000/docs renders the same schema.
+- [docs/submission-checklist.md](docs/submission-checklist.md): the brief's 9 deliverables and where each screenshot comes from.
+- [PLAN.md](PLAN.md): the full design, tickets and deliverable mapping.
+
+## Next steps
+
+Deliberately left out of this lab (PLAN.md §11), and what a production version would add:
+
+- **Dependabot** or similar automated dependency updates. The project is not maintained after delivery.
+- **Authentication** and authorization on the API. The employee ID is trusted as given by the calling system.
+- **OpenTelemetry** traces and metrics beyond the per-step token and latency figures in the agent's traces.
+- **Structured JSON logs** with a request ID. The API uses default uvicorn logging.
+- **Rate limiting** on the API and the MCP endpoint.
+- **Kubernetes** or Helm deployment. Docker Compose is the only runtime here.
+- **Human-review UI** for the tickets `flag_for_human_review` creates.
+- **Retries** and circuit breakers beyond the one retry for an invalid model answer.
+- **Multi-tenant** policies: one company's catalog and rules only.
 
 ## Tech stack
 
