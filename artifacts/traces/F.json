@@ -1,0 +1,163 @@
+{
+  "employee_id": "E9999",
+  "request": "I need a new monitor",
+  "model": "claude-opus-5-5-fast",
+  "started_at": "2026-11-27T20:35:58.925278Z",
+  "max_steps": 8,
+  "tool_steps": 2,
+  "steps": [
+    {
+      "index": 1,
+      "actor": "model",
+      "thought": "Looking up employee E9999's record and checking monitor eligibility.",
+      "actions": [
+        {
+          "tool_use_id": "toolu_01NFAktfiGcqCAHkSVqEv3iM",
+          "tool": "get_employee_info",
+          "arguments": {
+            "employee_id": "E9999"
+          },
+          "observation": {
+            "error": {
+              "code": "NOT_FOUND",
+              "reason_code": "EMPLOYEE_NOT_FOUND",
+              "message": "No employee with ID E9999."
+            }
+          },
+          "is_error": false,
+          "executed": true,
+          "latency_ms": 13.574125005106907
+        },
+        {
+          "tool_use_id": "toolu_01HpiGkZXwTeG9gy8QnT4nS5",
+          "tool": "check_request_eligibility",
+          "arguments": {
+            "employee_id": "E9999",
+            "item": "monitor"
+          },
+          "observation": {
+            "employee_id": "E9999",
+            "role": null,
+            "item": null,
+            "verdict": "NEEDS_REVIEW",
+            "reason_code": "EMPLOYEE_NOT_FOUND",
+            "explanation": "No employee with ID E9999.",
+            "tenure_months": null,
+            "min_tenure_months": null,
+            "refresh_months": null,
+            "last_acquired_on": null,
+            "next_eligible_date": null,
+            "unit_cost_usd": null
+          },
+          "is_error": false,
+          "executed": true,
+          "latency_ms": 12.169250003353227
+        }
+      ],
+      "answer": null,
+      "stop_reason": "tool_use",
+      "input_tokens": 3579,
+      "output_tokens": 155,
+      "llm_latency_ms": 1031.4000840007793,
+      "reflection": null
+    },
+    {
+      "index": 2,
+      "actor": "model",
+      "thought": "Escalating to a human reviewer because the employee record was not found.",
+      "actions": [
+        {
+          "tool_use_id": "toolu_017mtiWTbzt1ALC3EYyjbSrD",
+          "tool": "flag_for_human_review",
+          "arguments": {
+            "employee_id": "E9999",
+            "request": "I need a new monitor",
+            "reason": "TOOL_NEEDS_REVIEW: EMPLOYEE_NOT_FOUND - no employee record for E9999; eligibility check returned NEEDS_REVIEW"
+          },
+          "observation": {
+            "ticket_id": "TKT-000009",
+            "status": "PENDING_REVIEW",
+            "employee_id": "E9999",
+            "escalation_code": "TOOL_NEEDS_REVIEW",
+            "created_at": "2026-11-27T20:36:00.994945Z"
+          },
+          "is_error": false,
+          "executed": true,
+          "latency_ms": 17.12316699558869
+        }
+      ],
+      "answer": null,
+      "stop_reason": "tool_use",
+      "input_tokens": 4002,
+      "output_tokens": 188,
+      "llm_latency_ms": 1004.0877509964048,
+      "reflection": null
+    },
+    {
+      "index": 3,
+      "actor": "model",
+      "thought": "",
+      "actions": [],
+      "answer": "{\n  \"decision\": \"ESCALATE\",\n  \"item\": null,\n  \"response\": \"We couldn't find an employee record for ID E9999, so we can't decide on your monitor request automatically. Your request has gone to a person for review under ticket TKT-000009. Its status is pending review.\",\n  \"reasons\": [\n    \"get_employee_info returned NOT_FOUND with reason_code EMPLOYEE_NOT_FOUND for E9999\",\n    \"check_request_eligibility returned NEEDS_REVIEW with reason_code EMPLOYEE_NOT_FOUND\",\n    \"Escalated with TOOL_NEEDS_REVIEW and ticket TKT-000009 was created\"\n  ],\n  \"ticket_id\": \"TKT-000009\"\n}",
+      "stop_reason": "end_turn",
+      "input_tokens": 4287,
+      "output_tokens": 256,
+      "llm_latency_ms": 993.4155419978197,
+      "reflection": null
+    },
+    {
+      "index": 4,
+      "actor": "reflection",
+      "thought": "",
+      "actions": [],
+      "answer": null,
+      "stop_reason": null,
+      "input_tokens": 1516,
+      "output_tokens": 9,
+      "llm_latency_ms": 502.5276250016759,
+      "reflection": {
+        "draft_number": 1,
+        "seeded": false,
+        "draft": {
+          "decision": "ESCALATE",
+          "item": null,
+          "response": "We couldn't find an employee record for ID E9999, so we can't decide on your monitor request automatically. Your request has gone to a person for review under ticket TKT-000009. Its status is pending review.",
+          "reasons": [
+            "get_employee_info returned NOT_FOUND with reason_code EMPLOYEE_NOT_FOUND for E9999",
+            "check_request_eligibility returned NEEDS_REVIEW with reason_code EMPLOYEE_NOT_FOUND",
+            "Escalated with TOOL_NEEDS_REVIEW and ticket TKT-000009 was created"
+          ],
+          "ticket_id": "TKT-000009"
+        },
+        "issues": [],
+        "critic_error": null,
+        "verdict": "pass"
+      }
+    }
+  ],
+  "outcome": {
+    "ended_by": "answer",
+    "final_text": "{\n  \"decision\": \"ESCALATE\",\n  \"item\": null,\n  \"response\": \"We couldn't find an employee record for ID E9999, so we can't decide on your monitor request automatically. Your request has gone to a person for review under ticket TKT-000009. Its status is pending review.\",\n  \"reasons\": [\n    \"get_employee_info returned NOT_FOUND with reason_code EMPLOYEE_NOT_FOUND for E9999\",\n    \"check_request_eligibility returned NEEDS_REVIEW with reason_code EMPLOYEE_NOT_FOUND\",\n    \"Escalated with TOOL_NEEDS_REVIEW and ticket TKT-000009 was created\"\n  ],\n  \"ticket_id\": \"TKT-000009\"\n}",
+    "ticket_id": null,
+    "detail": null,
+    "escalation_error": null,
+    "decision": {
+      "decision": "ESCALATE",
+      "item": null,
+      "response": "We couldn't find an employee record for ID E9999, so we can't decide on your monitor request automatically. Your request has gone to a person for review under ticket TKT-000009. Its status is pending review.",
+      "reasons": [
+        "get_employee_info returned NOT_FOUND with reason_code EMPLOYEE_NOT_FOUND for E9999",
+        "check_request_eligibility returned NEEDS_REVIEW with reason_code EMPLOYEE_NOT_FOUND",
+        "Escalated with TOOL_NEEDS_REVIEW and ticket TKT-000009 was created"
+      ],
+      "ticket_id": "TKT-000009",
+      "escalation_code": "TOOL_NEEDS_REVIEW",
+      "forced": false,
+      "ticket_code": "TOOL_NEEDS_REVIEW",
+      "ticket_reused": false
+    }
+  },
+  "seeded": false,
+  "total_input_tokens": 13384,
+  "total_output_tokens": 608
+}

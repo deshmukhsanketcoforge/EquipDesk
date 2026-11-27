@@ -12,7 +12,6 @@ from typing import cast
 
 import pytest
 
-from agent import __main__ as agent_main
 from agent.config import AgentSettings
 from agent.llm import LLMClient, LLMError, LLMResponse
 from agent.mcp_client import EquipDeskMcp
@@ -266,9 +265,3 @@ def test_main_reports_an_unwritable_out_path_without_a_traceback(
     captured = capsys.readouterr()
     assert "Action: get_employee_info" in captured.out  # the run itself is still shown
     assert "Could not write" in captured.err
-
-
-def test_agent_entry_point_is_not_implemented_yet(capsys: pytest.CaptureFixture[str]) -> None:
-    # `make demo` runs the full ReAct demo from EQP-13; until then it says so.
-    assert agent_main.main() == 1
-    assert "make one-call" in capsys.readouterr().err

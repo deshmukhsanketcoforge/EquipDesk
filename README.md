@@ -12,9 +12,7 @@ Work is tracked as tickets EQP-1 to EQP-14 (Linear project EquipDesk).
 
 | Done | Still to come |
 |---|---|
-| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py`<br>**EQP-3:** PostgreSQL schema with Alembic migrations, idempotent demo seed, and repositories (Postgres + in-memory)<br>**EQP-4, EQP-5:** `get_employee_info` as a service, exposed over MCP and REST, with a smoke client<br>**EQP-6:** `get_policy_limits` (service, REST, MCP)<br>**EQP-7:** `check_request_eligibility` (service, REST, MCP): rules R-01 to R-09<br>**EQP-8:** `flag_for_human_review` (service, REST, MCP): idempotent review tickets<br>**EQP-9:** LLM client for Claude Opus 5.5 (fast) on Azure AI Foundry, the agent's MCP client, and a one-call proof (`make one-call`)<br>**EQP-10:** the ReAct loop (Thought → Action → Observation, at most 8 tool steps) with JSON and Markdown traces (`make ask`)<br>**EQP-11:** the decision JSON and the guardrails: an approve, deny or escalate the tool results don't support becomes a forced escalation<br>**EQP-12:** reflection on every draft (a deterministic claim-vs-observation checker plus an LLM critic, at most one revision) and `--seed-flawed-draft` to show a catch, labelled SEEDED | Evals and demo (EQP-13) |
-
-`make demo` exists already, but it exits with a "not implemented yet" message until EQP-13.
+| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py`<br>**EQP-3:** PostgreSQL schema with Alembic migrations, idempotent demo seed, and repositories (Postgres + in-memory)<br>**EQP-4, EQP-5:** `get_employee_info` as a service, exposed over MCP and REST, with a smoke client<br>**EQP-6:** `get_policy_limits` (service, REST, MCP)<br>**EQP-7:** `check_request_eligibility` (service, REST, MCP): rules R-01 to R-09<br>**EQP-8:** `flag_for_human_review` (service, REST, MCP): idempotent review tickets<br>**EQP-9:** LLM client for Claude Opus 5.5 (fast) on Azure AI Foundry, the agent's MCP client, and a one-call proof (`make one-call`)<br>**EQP-10:** the ReAct loop (Thought → Action → Observation, at most 8 tool steps) with JSON and Markdown traces (`make ask`)<br>**EQP-11:** the decision JSON and the guardrails: an approve, deny or escalate the tool results don't support becomes a forced escalation<br>**EQP-12:** reflection on every draft (a deterministic claim-vs-observation checker plus an LLM critic, at most one revision) and `--seed-flawed-draft` to show a catch, labelled SEEDED<br>**EQP-13:** the demo and eval cases A–G in [evals/cases.yaml](evals/cases.yaml), the demo run (`make demo`) and the `live-eval` CI job, which runs every case 3 times against the real model and scores the runs | Evidence pack (EQP-14) |
 
 ## Prerequisites
 
@@ -88,6 +86,16 @@ Run one request through the full ReAct loop and print its trace (Thought → Act
 make ask ARGS='--employee-id E1002 --request "I need a second monitor"'
 ```
 
+Run the demo: cases A to F from [evals/cases.yaml](evals/cases.yaml), once each. It writes each trace to `artifacts/traces/<case>.md` and `.json`, and `summary.md` with each final decision and response, checked against the expected result:
+
+```sh
+make seed
+make demo                                       # A to F
+make demo ARGS='--case B --seed-flawed-draft'   # B with a known-bad first draft (SEEDED): reflection catches it
+```
+
+`make eval` runs the live eval: every case (A to G) 3 times, scored as in [PLAN.md](PLAN.md) D12. It writes `artifacts/eval/report.md` (per-case pass^3, failures, tokens and an estimated cost), `summary.json` and the traces. Each run is billed, about 20,000 tokens, so CI runs it rather than every local change.
+
 Stop everything with `make down`.
 
 ## Running the tests
@@ -121,7 +129,8 @@ After changing dependencies in `pyproject.toml`, run `uv lock` and rebuild the i
 | `make smoke` | MCP client lists the tools and calls `get_employee_info` (after `make seed`; `EMPLOYEE=E1002` picks another employee) |
 | `make one-call` | One hardcoded request, one tool call, on the real model (needs `FOUNDRY_*`, see below; `ARGS='--employee-id E1003 --request "..."'` changes the request) |
 | `make ask` | One request through the full ReAct loop on the real model, printing the trace (`ARGS='--employee-id E1003 --request "..."'`) |
-| `make demo` | Run the agent demo against the real model (from EQP-13; needs `FOUNDRY_*` env vars) |
+| `make demo` | Demo cases A to F on the real model, once each, with traces and a summary in `artifacts/traces/` (after `make seed`; `ARGS='--case B --seed-flawed-draft'` runs one case) |
+| `make eval` | Live eval: every case 3 times on the real model, scored, report in `artifacts/eval/` (after `make seed`; billed) |
 
 ## Project layout
 
@@ -150,7 +159,12 @@ agent/             the agent (talks to the backend only through MCP)
   react_agent.py   the ReAct loop and system prompt (make ask)
   decision.py      the decision JSON the model ends with, and the final decision
   guardrails.py    checks a decision against the tool results (R-16 to R-18)
+  reflection.py    reflection on each draft: deterministic checker + LLM critic (R-20 to R-23)
   trace.py         the trace of a run, rendered as JSON and Markdown
+  evals.py         the eval cases, run results read from traces, and scoring (D12)
+  run_demo.py      the demo and the live eval (make demo, make eval)
+evals/
+  cases.yaml       demo and eval cases A-G: expected results, k, thresholds, pricing
 tests/             pytest suite (runs in Docker)
 scripts/
   check.sh         the full lint + type + test check
@@ -163,7 +177,9 @@ PLAN.md            design, decisions, tickets, deliverables
 
 ## CI
 
-GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs the `test` job on pull requests into `main`, on pushes to `main` and on manual dispatch. It builds the test image, runs `docker compose run --rm test`, and uploads the coverage report. It needs no secrets. A second job, `live-eval`, which runs the demo cases against the real model, is planned for EQP-13.
+GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs the `test` job on pull requests into `main`, on pushes to `main` and on manual dispatch. It builds the test image, runs `docker compose run --rm test`, and uploads the coverage report. It needs no secrets and is the required merge gate.
+
+The `live-eval` job runs after `test`. It starts `db` and `api`, seeds the demo data, and runs every case in [evals/cases.yaml](evals/cases.yaml) 3 times against the real model (`python -m agent.run_demo --eval`). It fails on any critical miss: A not approved or B not denied in every run, an escalate case approved or denied, or a decision the guardrails would reject. It also fails when a case has fewer than 2 of 3 full matches, or fewer than 90% of all runs fully match. It writes the report to the job summary and uploads the traces, `summary.json` and the report. It uses the `FOUNDRY_API_KEY`, `FOUNDRY_ENDPOINT` and `FOUNDRY_MODEL_DEPLOYMENT` secrets. Docs-only pull requests (Markdown or `docs/` only) and pull requests from forks skip it. A newer push cancels a running `test` job, but waits for a running `live-eval`: a cancelled live run would have spent its tokens with no score.
 
 ## Development workflow
 
