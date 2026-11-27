@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import itertools
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
@@ -67,6 +68,25 @@ def text(answer: str, *, stop_reason: str = "end_turn") -> LLMResponse:
     """A reply with no tool call: the final answer (or a refusal / cut-off reply)."""
     blocks = [{"type": "text", "text": answer}] if answer else []
     return LLMResponse.from_message(message(blocks, stop_reason=stop_reason), latency_ms=800.0)
+
+
+def decision(
+    kind: str,
+    item: str | None = None,
+    *,
+    response: str = "Your request has been handled.",
+    reasons: list[str] | None = None,
+    ticket_id: str | None = None,
+) -> LLMResponse:
+    """A final answer in the decision JSON the agent expects (PLAN.md D8)."""
+    body = {
+        "decision": kind,
+        "item": item,
+        "response": response,
+        "reasons": reasons if reasons is not None else ["Based on the tool results."],
+        "ticket_id": ticket_id,
+    }
+    return text(json.dumps(body))
 
 
 @dataclass(frozen=True)

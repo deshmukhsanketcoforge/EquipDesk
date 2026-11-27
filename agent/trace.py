@@ -12,6 +12,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, computed_field
 
+from agent.decision import Decision
+
 _SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
 
 
@@ -30,6 +32,10 @@ class EndReason(StrEnum):
     """The model stopped without a complete, non-empty answer: forced escalation."""
     MCP_ERROR = "mcp_error"
     """The MCP session failed mid-run: forced escalation (if the server can still take it)."""
+    GUARDRAIL = "guardrail"
+    """The tool results did not support the model's decision (R-16 to R-18): forced escalation."""
+    INVALID_DECISION = "invalid_decision"
+    """The model's decision JSON was invalid twice: forced escalation."""
 
 
 class Action(BaseModel):
@@ -74,6 +80,8 @@ class Outcome(BaseModel):
     """Why a run ended early, e.g. the LLM error message."""
     escalation_error: str | None = None
     """Set when the forced escalation itself failed: no review ticket exists."""
+    decision: Decision | None = None
+    """The final decision after the guardrails; None only if a forced escalation failed."""
 
 
 class Trace(BaseModel):
@@ -135,6 +143,29 @@ def _observation(action: Action) -> list[str]:
     return [label, "", *_fenced(json.dumps(action.observation, indent=2), "json")]
 
 
+def _decision(decision: Decision) -> list[str]:
+    summary = [decision.decision.value]
+    if decision.item:
+        summary.append(f"item {decision.item}")
+    if decision.escalation_code:
+        summary.append(decision.escalation_code.value)
+    if decision.ticket_id:
+        summary.append(f"ticket {decision.ticket_id}")
+    if decision.forced:
+        summary.append("forced by the code")
+    if decision.ticket_reused and decision.ticket_code:
+        summary.append(f"existing ticket reused, its code: {decision.ticket_code.value}")
+    lines = [
+        f"**Decision: {' · '.join(summary)}**",
+        "",
+        "Response:",
+        "",
+        *_quoted(decision.response),
+    ]
+    lines += ["", "Reasons:", "", *(f"- {_one_line(reason)}" for reason in decision.reasons)]
+    return lines
+
+
 def to_markdown(trace: Trace) -> str:
     lines = [
         f"# ReAct trace: {trace.employee_id}",
@@ -168,6 +199,8 @@ def to_markdown(trace: Trace) -> str:
     lines += ["", "## Outcome", "", f"Ended by: {trace.outcome.ended_by.value}"]
     if trace.outcome.final_text is not None:
         lines += ["Final answer:", "", *_quoted(trace.outcome.final_text), ""]
+    if trace.outcome.decision is not None:
+        lines += [*_decision(trace.outcome.decision), ""]
     if trace.outcome.escalation_error:
         lines.append(f"Escalation FAILED: {_one_line(trace.outcome.escalation_error)}")
     elif trace.outcome.ticket_id:

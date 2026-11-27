@@ -12,7 +12,7 @@ Work is tracked as tickets EQP-1 to EQP-14 (Linear project EquipDesk).
 
 | Done | Still to come |
 |---|---|
-| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py`<br>**EQP-3:** PostgreSQL schema with Alembic migrations, idempotent demo seed, and repositories (Postgres + in-memory)<br>**EQP-4, EQP-5:** `get_employee_info` as a service, exposed over MCP and REST, with a smoke client<br>**EQP-6:** `get_policy_limits` (service, REST, MCP)<br>**EQP-7:** `check_request_eligibility` (service, REST, MCP): rules R-01 to R-09<br>**EQP-8:** `flag_for_human_review` (service, REST, MCP): idempotent review tickets<br>**EQP-9:** LLM client for Claude Opus 5.5 (fast) on Azure AI Foundry, the agent's MCP client, and a one-call proof (`make one-call`)<br>**EQP-10:** the ReAct loop (Thought → Action → Observation, at most 8 tool steps) with JSON and Markdown traces (`make ask`) | Decision schema and guardrails (EQP-11), reflection (EQP-12), evals and demo (EQP-13) |
+| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py`<br>**EQP-3:** PostgreSQL schema with Alembic migrations, idempotent demo seed, and repositories (Postgres + in-memory)<br>**EQP-4, EQP-5:** `get_employee_info` as a service, exposed over MCP and REST, with a smoke client<br>**EQP-6:** `get_policy_limits` (service, REST, MCP)<br>**EQP-7:** `check_request_eligibility` (service, REST, MCP): rules R-01 to R-09<br>**EQP-8:** `flag_for_human_review` (service, REST, MCP): idempotent review tickets<br>**EQP-9:** LLM client for Claude Opus 5.5 (fast) on Azure AI Foundry, the agent's MCP client, and a one-call proof (`make one-call`)<br>**EQP-10:** the ReAct loop (Thought → Action → Observation, at most 8 tool steps) with JSON and Markdown traces (`make ask`)<br>**EQP-11:** the decision JSON and the guardrails: an approve, deny or escalate the tool results don't support becomes a forced escalation | Reflection (EQP-12), evals and demo (EQP-13) |
 
 `make demo` exists already, but it exits with a "not implemented yet" message until EQP-13.
 
@@ -148,6 +148,8 @@ agent/             the agent (talks to the backend only through MCP)
   mcp_client.py    MCP client: the 4 tools in LLM format, calls as observations
   one_call.py      one hardcoded request -> one tool call (make one-call)
   react_agent.py   the ReAct loop and system prompt (make ask)
+  decision.py      the decision JSON the model ends with, and the final decision
+  guardrails.py    checks a decision against the tool results (R-16 to R-18)
   trace.py         the trace of a run, rendered as JSON and Markdown
 tests/             pytest suite (runs in Docker)
 scripts/
