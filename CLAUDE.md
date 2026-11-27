@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-EQP-1 to EQP-10 are done: Docker, CI, the database, all four MCP tools (service, REST and MCP), the agent's Foundry LLM client, MCP client and one-call proof (`make one-call`), and the ReAct loop with traces (`make ask`). The decision schema and guardrails, reflection and evals (EQP-11 to EQP-13) and the evidence pack (EQP-14) are still to come; the README's Status table is the current list. **`PLAN.md` is the source of truth** for scope, decisions, ticket order and the deliverable mapping. Read it before starting any ticket. Commands and modules for later tickets (e.g. `run_demo`, `evals/cases.yaml`) do not exist yet, so verify before relying on them.
+EQP-1 to EQP-11 are done: Docker, CI, the database, all four MCP tools (service, REST and MCP), the agent's Foundry LLM client, MCP client and one-call proof (`make one-call`), the ReAct loop with traces (`make ask`), and the decision JSON with its guardrails. Reflection and evals (EQP-12, EQP-13) and the evidence pack (EQP-14) are still to come; the README's Status table is the current list. **`PLAN.md` is the source of truth** for scope, decisions, ticket order and the deliverable mapping. Read it before starting any ticket. Commands and modules for later tickets (e.g. `run_demo`, `evals/cases.yaml`) do not exist yet, so verify before relying on them.
 
 ## What this is
 

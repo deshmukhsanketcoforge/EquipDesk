@@ -6,7 +6,9 @@ from pathlib import Path
 
 import pytest
 
+from agent.decision import Decision, DecisionKind
 from agent.trace import Action, EndReason, Outcome, Step, Trace, to_json, to_markdown, write_trace
+from server.codes import EscalationCode
 
 STARTED = datetime(2026, 11, 27, 10, 0, tzinfo=UTC)
 
@@ -298,3 +300,70 @@ def test_outcome_detail_and_escalation_error_stay_on_one_line() -> None:
     assert "Escalation FAILED: INTERNAL: failed # Another" in markdown
     assert "\n## Fake heading" not in markdown
     assert "\n# Another" not in markdown
+
+
+# The final decision (EQP-11)
+
+
+def test_markdown_shows_the_final_decision() -> None:
+    final = Decision(
+        decision=DecisionKind.APPROVE,
+        item="monitor",
+        response="Your second monitor is approved.\n## not a heading",
+        reasons=["ELIGIBLE (WITHIN_POLICY)", "refresh 36 months\nlast 2022-03-27"],
+        ticket_id=None,
+        escalation_code=None,
+        forced=False,
+    )
+    trace = _trace().model_copy(
+        update={"outcome": _trace().outcome.model_copy(update={"decision": final})}
+    )
+
+    markdown = to_markdown(trace)
+
+    assert "**Decision: APPROVE · item monitor**" in markdown
+    assert "> Your second monitor is approved.\n> ## not a heading" in markdown
+    assert "- ELIGIBLE (WITHIN_POLICY)\n- refresh 36 months last 2022-03-27" in markdown
+
+
+def test_markdown_shows_a_forced_escalation_on_a_reused_ticket() -> None:
+    final = Decision(
+        decision=DecisionKind.ESCALATE,
+        item=None,
+        response="Your request has been sent to a human reviewer (ticket TKT-000007).",
+        reasons=["GUARDRAIL_OVERRIDE: the reply was cut off."],
+        ticket_id="TKT-000007",
+        escalation_code=EscalationCode.GUARDRAIL_OVERRIDE,
+        forced=True,
+        ticket_code=EscalationCode.EXCEPTION_CLAIMED,
+        ticket_reused=True,
+    )
+    trace = _forced().model_copy(
+        update={"outcome": _forced().outcome.model_copy(update={"decision": final})}
+    )
+
+    markdown = to_markdown(trace)
+
+    assert (
+        "**Decision: ESCALATE · GUARDRAIL_OVERRIDE · ticket TKT-000007 · forced by the code"
+        " · existing ticket reused, its code: EXCEPTION_CLAIMED**"
+    ) in markdown
+
+
+def test_a_decision_round_trips_through_json() -> None:
+    final = Decision(
+        decision=DecisionKind.ESCALATE,
+        item=None,
+        response="r",
+        reasons=["x"],
+        ticket_id="TKT-000001",
+        escalation_code=EscalationCode.MULTIPLE_ITEMS,
+        forced=False,
+        ticket_code=EscalationCode.MULTIPLE_ITEMS,
+    )
+    trace = _trace().model_copy(
+        update={"outcome": _trace().outcome.model_copy(update={"decision": final})}
+    )
+
+    assert Trace.model_validate_json(to_json(trace)) == trace
+    assert json.loads(to_json(trace))["outcome"]["decision"]["escalation_code"] == "MULTIPLE_ITEMS"
