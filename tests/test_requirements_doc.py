@@ -3,7 +3,7 @@
 - Every code in server/codes.py is documented, and the doc lists no unknown code.
 - Rule IDs (R-01, R-02, ...) are unique and sequential.
 - Every rule names the tests that cover it; any test file it names exists.
-- Every reason and escalation code is the outcome of at least one rule.
+- Every reason, escalation and reflection issue code is the outcome of at least one rule.
 """
 
 import re
@@ -11,12 +11,14 @@ from pathlib import Path
 
 import pytest
 
-from server.codes import ErrorCode, EscalationCode, ReasonCode, Verdict
+from server.codes import ErrorCode, EscalationCode, IssueCode, ReasonCode, Verdict
 
 ROOT = Path(__file__).resolve().parents[1]
 DOC = ROOT / "docs" / "requirements.md"
 
-ALL_CODES = {c.value for enum in (Verdict, ReasonCode, EscalationCode, ErrorCode) for c in enum}
+ALL_CODES = {
+    c.value for enum in (Verdict, ReasonCode, EscalationCode, ErrorCode, IssueCode) for c in enum
+}
 RULE_ROW = re.compile(r"^\| (R-\d{2}) \|(.+)\|\s*$", re.MULTILINE)
 CODE_ROW = re.compile(r"^\| `([A-Z][A-Z_]+)` \|", re.MULTILINE)
 TEST_PATH = re.compile(r"tests/[\w/]+\.py")
@@ -56,6 +58,12 @@ def test_every_rule_row_has_rule_outcome_and_tests_columns(doc: str) -> None:
         assert len(cells) == 3, f"{rule_id} should have Rule, Outcome and Tests columns"
 
 
+def test_no_rule_is_still_planned_for_a_done_ticket(doc: str) -> None:
+    # Rules list "Planned: EQP-n" until that ticket names its real tests.
+    for rule_id, cells in _rules(doc):
+        assert "Planned: EQP-12" not in cells[-1], f"{rule_id} should name its EQP-12 tests"
+
+
 def test_every_rule_names_its_tests(doc: str) -> None:
     for rule_id, cells in _rules(doc):
         tests_cell = cells[-1]
@@ -65,7 +73,12 @@ def test_every_rule_names_its_tests(doc: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "code", sorted({c.value for c in ReasonCode} | {c.value for c in EscalationCode})
+    "code",
+    sorted(
+        {c.value for c in ReasonCode}
+        | {c.value for c in EscalationCode}
+        | {c.value for c in IssueCode}
+    ),
 )
 def test_every_reason_and_escalation_code_is_a_rule_outcome(doc: str, code: str) -> None:
     outcomes = " ".join(cells[1] for _, cells in _rules(doc))

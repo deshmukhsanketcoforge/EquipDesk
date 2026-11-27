@@ -162,7 +162,7 @@ class FoundryLLMClient:
                 max_tokens=self._settings.foundry_max_tokens,
                 system=system,
                 messages=messages,
-                tools=tools,
+                tools=tools if tools else anthropic.omit,  # the critic sends none
                 thinking={"type": "adaptive", "display": "summarized"},
                 output_config={"effort": self._settings.foundry_effort},
             )

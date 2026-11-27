@@ -40,6 +40,9 @@ services:
       target: runtime
     profiles: ["demo"]
     command: ["python", "-m", "agent"]
+    # Traces written with --trace-dir artifacts/traces land on the host (git-ignored).
+    volumes:
+      - ./artifacts:/app/artifacts
     environment:
       MCP_URL: http://api:8000/mcp
       FOUNDRY_API_KEY: ${FOUNDRY_API_KEY:-}

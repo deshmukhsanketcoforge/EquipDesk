@@ -63,6 +63,19 @@ class EscalationCode(StrEnum):
     OTHER = "OTHER"
 
 
+class IssueCode(StrEnum):
+    """Why reflection sent a draft decision back for revision (R-20 to R-23)."""
+
+    DECISION_MISMATCH = "DECISION_MISMATCH"
+    UNSUPPORTED_DATE = "UNSUPPORTED_DATE"
+    UNSUPPORTED_AMOUNT = "UNSUPPORTED_AMOUNT"
+    UNSUPPORTED_NUMBER = "UNSUPPORTED_NUMBER"
+    UNSUPPORTED_TICKET = "UNSUPPORTED_TICKET"
+    UNSUPPORTED_CLAIM = "UNSUPPORTED_CLAIM"
+    UNBACKED_COMMITMENT = "UNBACKED_COMMITMENT"
+    MISSED_ESCALATION = "MISSED_ESCALATION"
+
+
 class ErrorCode(StrEnum):
     """Category of a tool error returned as data (tools never raise)."""
 

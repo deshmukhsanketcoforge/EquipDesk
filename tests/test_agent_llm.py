@@ -122,6 +122,17 @@ async def test_request_body_uses_the_deployment_tools_and_explicit_effort() -> N
 
 
 @pytest.mark.anyio
+async def test_a_call_without_tools_sends_no_tools_field() -> None:
+    # The reflection critic (EQP-12) calls the model without tools.
+    recorder = Recorder()
+    await _client(recorder).complete(
+        system="You review drafts.", messages=[{"role": "user", "content": "x"}], tools=[]
+    )
+
+    assert "tools" not in recorder.body_sent
+
+
+@pytest.mark.anyio
 async def test_request_sends_no_sampling_parameters_forced_tool_choice_or_speed() -> None:
     # Opus 5.5 rejects non-default temperature/top_p/top_k and forced tool_choice
     # (both 400), so determinism comes from the deterministic tools, not sampling.

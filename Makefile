@@ -30,7 +30,9 @@ one-call: ## One hardcoded request -> one tool call on the real model (needs FOU
 	docker compose --profile demo run --rm --build agent python -m agent.one_call $(ARGS)
 
 ask: ## One request through the full ReAct loop on the real model, e.g. ARGS='--request "I need a monitor"'
+	mkdir -p artifacts/traces
 	docker compose --profile demo run --rm --build agent python -m agent.react_agent $(ARGS)
 
 demo: ## Run the agent demo against the real model (needs FOUNDRY_* env)
+	mkdir -p artifacts/traces
 	docker compose --profile demo run --rm --build agent
