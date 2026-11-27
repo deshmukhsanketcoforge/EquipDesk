@@ -61,10 +61,14 @@ class LLMResponse(BaseModel):
     """The reply's content blocks exactly as received, for the next request."""
     thought: str
     """Non-empty thinking summaries and text, in order: the trace's Thought."""
+    thinking: str = ""
+    """Only the thinking summaries (the Thought of a final answer, without the answer)."""
     text: str
     """Only the text blocks: the model's answer when it calls no tool."""
     tool_calls: list[ToolCall]
     stop_reason: str | None
+    refusal: str | None = None
+    """For stop_reason "refusal": the safety category and explanation, if given."""
     usage: Usage
     latency_ms: float = 0.0
 
@@ -74,22 +78,31 @@ class LLMResponse(BaseModel):
     ) -> "LLMResponse":
         message = reply if isinstance(reply, Message) else Message.model_validate(reply)
         thoughts: list[str] = []
+        thinking: list[str] = []
         texts: list[str] = []
         calls: list[ToolCall] = []
         for block in message.content:
             if block.type == "thinking" and block.thinking.strip():
                 thoughts.append(block.thinking.strip())
+                thinking.append(block.thinking.strip())
             elif block.type == "text" and block.text.strip():
                 thoughts.append(block.text.strip())
                 texts.append(block.text.strip())
             elif block.type == "tool_use":
                 calls.append(ToolCall(id=block.id, name=block.name, arguments=dict(block.input)))
+        refusal = None
+        if message.stop_reason == "refusal":
+            details = message.stop_details
+            parts = [details.category, details.explanation] if details else []
+            refusal = ": ".join(str(part) for part in parts if part) or "no category given"
         return cls(
             content=[block.to_dict() for block in message.content],
             thought="\n".join(thoughts),
+            thinking="\n".join(thinking),
             text="\n".join(texts),
             tool_calls=calls,
             stop_reason=message.stop_reason,
+            refusal=refusal,
             usage=Usage(
                 input_tokens=message.usage.input_tokens,
                 output_tokens=message.usage.output_tokens,
@@ -160,8 +173,9 @@ class FoundryLLMClient:
             ) from None
         except anthropic.APIConnectionError:
             # Also covers timeouts (APITimeoutError is a subclass).
+            # No URL in the message: it ends up in review tickets and trace files.
             raise LLMError(
-                f"Could not reach the Foundry endpoint {self._settings.foundry_endpoint}."
+                "Could not reach the Foundry endpoint (check FOUNDRY_ENDPOINT)."
             ) from None
         except anthropic.AnthropicError as exc:  # e.g. a reply the SDK cannot parse
             raise LLMError(f"The model call failed ({type(exc).__name__}).") from None

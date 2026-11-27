@@ -142,6 +142,7 @@ async def test_reply_is_parsed_into_thought_tool_calls_and_usage() -> None:
     response = await _complete(_client(Recorder()))
 
     assert response.thought == "Look up the employee first.\nChecking the employee record."
+    assert response.thinking == "Look up the employee first."
     assert response.text == "Checking the employee record."
     assert response.tool_calls == [
         ToolCall(id="toolu_1", name="get_employee_info", arguments={"employee_id": "E1001"})
@@ -181,11 +182,26 @@ async def test_empty_thinking_blocks_add_nothing_to_the_thought() -> None:
 async def test_a_refusal_is_returned_not_raised() -> None:
     # The agent turns a refusal into an escalation (EQP-10/11); Foundry has no
     # server-side fallback.
-    reply = message([], stop_reason="refusal")
+    details = {"type": "refusal", "category": "cyber", "explanation": "Declined."}
+    reply = message([], stop_reason="refusal", stop_details=details)
     response = await _complete(_client(Recorder(body=reply)))
 
     assert response.stop_reason == "refusal"
     assert response.tool_calls == []
+    # The category says which safety classifier declined: kept for the trace.
+    assert response.refusal == "cyber: Declined."
+
+
+@pytest.mark.anyio
+async def test_a_refusal_without_details_still_says_so() -> None:
+    response = await _complete(_client(Recorder(body=message([], stop_reason="refusal"))))
+
+    assert response.refusal == "no category given"
+
+
+@pytest.mark.anyio
+async def test_other_replies_have_no_refusal() -> None:
+    assert (await _complete(_client(Recorder()))).refusal is None
 
 
 # Errors
@@ -207,8 +223,12 @@ async def test_connection_failures_become_llm_errors() -> None:
     def unreachable(request: httpx2.Request) -> httpx2.Response:
         raise httpx2.ConnectError("connection refused", request=request)
 
-    with pytest.raises(LLMError, match="reach"):
+    with pytest.raises(LLMError, match="reach") as caught:
         await _complete(_client(unreachable))
+
+    # The message ends up in tickets and traces: no resource URL in it.
+    assert ENDPOINT not in str(caught.value)
+    assert "services.ai.azure.com" not in str(caught.value)
 
 
 @pytest.mark.anyio
