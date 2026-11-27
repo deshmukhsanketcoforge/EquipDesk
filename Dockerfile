@@ -34,6 +34,8 @@ FROM base AS runtime
 
 COPY server ./server
 COPY agent ./agent
+COPY alembic.ini ./
+COPY migrations ./migrations
 
 RUN useradd --create-home --uid 10001 app
 USER app

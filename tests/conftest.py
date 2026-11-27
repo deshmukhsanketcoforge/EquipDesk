@@ -9,8 +9,14 @@ from collections.abc import Iterator
 
 import pytest
 import uvicorn
+from sqlalchemy import Engine, create_engine, make_url, text
+from sqlalchemy.orm import Session
 
+from server.config import Settings
+from server.db.migrate import upgrade_to_head
 from server.main import create_app
+
+TEST_DATABASE = "equipdesk_test"
 
 
 @pytest.fixture
@@ -49,3 +55,37 @@ def live_server_url() -> Iterator[str]:
     finally:
         server.should_exit = True
         thread.join(timeout=10)
+
+
+@pytest.fixture(scope="session")
+def db_engine() -> Iterator[Engine]:
+    """A fresh, empty test database (on the compose Postgres), migrated to head.
+
+    Creating it from scratch on every run also proves that the migrations
+    work on an empty database.
+    """
+    url = make_url(Settings().database_url)
+    admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        conn.execute(text(f'DROP DATABASE IF EXISTS "{TEST_DATABASE}" WITH (FORCE)'))
+        conn.execute(text(f'CREATE DATABASE "{TEST_DATABASE}"'))
+    admin.dispose()
+
+    test_url = url.set(database=TEST_DATABASE)
+    upgrade_to_head(test_url.render_as_string(hide_password=False))
+    engine = create_engine(test_url)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def db_session(db_engine: Engine) -> Iterator[Session]:
+    """A session whose work is rolled back after the test, commits included."""
+    with db_engine.connect() as conn:
+        transaction = conn.begin()
+        session = Session(bind=conn, join_transaction_mode="create_savepoint")
+        try:
+            yield session
+        finally:
+            session.close()
+            transaction.rollback()

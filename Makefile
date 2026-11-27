@@ -19,8 +19,9 @@ down: ## Stop everything and remove volumes
 logs: ## Follow api logs
 	docker compose logs --follow api
 
-seed: ## Seed the database (implemented in EQP-3)
-	@echo "Seed script arrives in EQP-3." >&2; exit 1
+seed: ## (Re)load demo data; idempotent, keeps review tickets. Starts db + api if needed
+	docker compose up --build --detach --wait api
+	docker compose exec api python -m server.db.seed
 
 demo: ## Run the agent demo against the real model (needs FOUNDRY_* env)
 	docker compose --profile demo run --rm --build agent
