@@ -9,7 +9,8 @@ from mcp.server.mcpserver import MCPServer
 
 from server.clock import Clock
 from server.repositories.base import RepositoryProvider
-from server.services import employees, policies
+from server.services import eligibility, employees, policies
+from server.services.eligibility import EligibilityResult
 from server.services.employees import EmployeeInfo
 from server.services.policies import PolicyLimits
 from server.services.results import ErrorResult, call_with_repository
@@ -61,6 +62,38 @@ def build_mcp_server(repositories: RepositoryProvider, clock: Clock) -> MCPServe
         """
         return call_with_repository(
             repositories, lambda repo: policies.get_policy_limits(role, repo=repo)
+        )
+
+    @mcp.tool()
+    def check_request_eligibility(employee_id: str, item: str) -> EligibilityResult | ErrorResult:
+        """Decide by policy whether an employee may get one item today. Deterministic.
+
+        `employee_id` is "E" followed by 4 digits. `item` is ONE catalog item name or
+        alias, as the employee wrote it (e.g. "monitor", "screen", "notebook"). Pass
+        only the item: this tool cannot see the reason for the request, so exception
+        claims such as damage or loss are yours to spot.
+
+        verdict:
+        - ELIGIBLE (reason_code WITHIN_POLICY): within policy, may be approved.
+        - INELIGIBLE: clearly outside policy. reason_code ROLE_NOT_ENTITLED,
+          TENURE_TOO_SHORT, or COOLDOWN_NOT_ELAPSED (next_eligible_date says when).
+        - NEEDS_REVIEW: a human must decide. reason_code EMPLOYEE_NOT_FOUND,
+          UNKNOWN_ROLE, UNKNOWN_ITEM, CONFLICTING_RECORDS, HIGH_COST, or
+          NO_ITEM_POLICY (the role has a policy, but none for this item).
+
+        The result also gives the facts behind the verdict (role, resolved item,
+        tenure_months, min_tenure_months, refresh_months, last_acquired_on,
+        next_eligible_date, unit_cost_usd); quote only these values.
+
+        Errors are returned as data, never raised: {"error": {"code", "reason_code",
+        "message"}}. INVALID_INPUT means a malformed employee ID or an empty item;
+        INTERNAL means the check failed.
+        """
+        return call_with_repository(
+            repositories,
+            lambda repo: eligibility.check_request_eligibility(
+                employee_id, item, repo=repo, clock=clock
+            ),
         )
 
     return mcp

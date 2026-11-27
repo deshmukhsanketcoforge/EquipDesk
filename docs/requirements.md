@@ -64,19 +64,19 @@ Definitions used by the rules:
 
 ## Eligibility rules
 
-`check_request_eligibility(employee_id, item)` applies these rules **in order** and stops at the first one that fails (R-09). Only R-01 and R-02 are also error cases of the lookup tools: `get_employee_info` returns `NOT_FOUND` / `EMPLOYEE_NOT_FOUND`, and `get_policy_limits` returns `NOT_FOUND` / `UNKNOWN_ROLE`. R-03, R-04 and R-08 are `NEEDS_REVIEW` verdicts that only `check_request_eligibility` returns; `get_employee_info` still returns the employee's data when their records conflict.
+`check_request_eligibility(employee_id, item)` applies these rules **in order** and stops at the first one that fails (R-09). Only R-01 and R-02 are also error cases of the lookup tools: `get_employee_info` returns `NOT_FOUND` / `EMPLOYEE_NOT_FOUND`, and `get_policy_limits` returns `NOT_FOUND` / `UNKNOWN_ROLE`. R-03, R-04, R-05 (no policy for the item) and R-08 are `NEEDS_REVIEW` verdicts that only `check_request_eligibility` returns; `get_employee_info` still returns the employee's data when their records conflict.
 
 | ID | Rule | Outcome | Tests |
 |---|---|---|---|
-| R-01 | The employee ID must exist | `NEEDS_REVIEW` / `EMPLOYEE_NOT_FOUND` | `tests/test_employee_service.py` (`get_employee_info`); Planned: EQP-7 |
-| R-02 | The employee's role must have a policy | `NEEDS_REVIEW` / `UNKNOWN_ROLE` | `tests/test_policy_service.py` (`get_policy_limits`); Planned: EQP-7 |
-| R-03 | The requested item must match a catalog item or alias | `NEEDS_REVIEW` / `UNKNOWN_ITEM` | Planned: EQP-7 |
-| R-04 | Records must be consistent: no item on file dated before the hire date or after today, and no hire date after today | `NEEDS_REVIEW` / `CONFLICTING_RECORDS` | Planned: EQP-7 |
-| R-05 | The role must be entitled to the item | `INELIGIBLE` / `ROLE_NOT_ENTITLED` | Planned: EQP-7 |
-| R-06 | Tenure must be at least the minimum tenure for that role and item | `INELIGIBLE` / `TENURE_TOO_SHORT` | Planned: EQP-7 |
-| R-07 | Today must be on or after the next eligible date for that item (the response includes `next_eligible_date`) | `INELIGIBLE` / `COOLDOWN_NOT_ELAPSED` | Planned: EQP-7 (exact boundary with a fixed clock) |
-| R-08 | The item's unit cost must not exceed $2,500 | `NEEDS_REVIEW` / `HIGH_COST` | Planned: EQP-7 |
-| R-09 | Rules R-01 to R-08 run in that order and the first failure decides. If none fails, the verdict is `ELIGIBLE` / `WITHIN_POLICY` | First failing rule, else `ELIGIBLE` / `WITHIN_POLICY` | Planned: EQP-7 (e.g. contractor laptop gives `ROLE_NOT_ENTITLED`, not `TENURE_TOO_SHORT`) |
+| R-01 | The employee ID must exist | `NEEDS_REVIEW` / `EMPLOYEE_NOT_FOUND` | `tests/test_employee_service.py` (`get_employee_info`), `tests/test_eligibility_service.py` |
+| R-02 | The employee's role must have a policy | `NEEDS_REVIEW` / `UNKNOWN_ROLE` | `tests/test_policy_service.py` (`get_policy_limits`), `tests/test_eligibility_service.py` |
+| R-03 | The requested item must match a catalog item or alias | `NEEDS_REVIEW` / `UNKNOWN_ITEM` | `tests/test_eligibility_service.py` |
+| R-04 | Records must be consistent: no item on file dated before the hire date or after today, and no hire date after today | `NEEDS_REVIEW` / `CONFLICTING_RECORDS` | `tests/test_eligibility_service.py` |
+| R-05 | The role must be entitled to the item. If the role has policies but none at all for this item (a data gap: the seed writes every role and item), a human must decide | `INELIGIBLE` / `ROLE_NOT_ENTITLED`; no policy for the item: `NEEDS_REVIEW` / `NO_ITEM_POLICY` | `tests/test_eligibility_service.py` |
+| R-06 | Tenure must be at least the minimum tenure for that role and item | `INELIGIBLE` / `TENURE_TOO_SHORT` | `tests/test_eligibility_service.py` |
+| R-07 | Today must be on or after the next eligible date for that item (the response includes `next_eligible_date`) | `INELIGIBLE` / `COOLDOWN_NOT_ELAPSED` | `tests/test_eligibility_service.py` (exact boundary with a fixed clock) |
+| R-08 | The item's unit cost must not exceed $2,500 | `NEEDS_REVIEW` / `HIGH_COST` | `tests/test_eligibility_service.py` |
+| R-09 | Rules R-01 to R-08 run in that order and the first failure decides. If none fails, the verdict is `ELIGIBLE` / `WITHIN_POLICY` | First failing rule, else `ELIGIBLE` / `WITHIN_POLICY` | `tests/test_eligibility_service.py` (e.g. contractor laptop gives `ROLE_NOT_ENTITLED`, not `TENURE_TOO_SHORT`) |
 
 ## Escalation rules: what counts as ambiguous
 
@@ -86,7 +86,7 @@ R-11 to R-15 are judgments about the request's wording, which code cannot check.
 
 | ID | Rule | Outcome | Tests |
 |---|---|---|---|
-| R-10 | A tool returned `NEEDS_REVIEW` (R-03, R-04, R-08), or a lookup returned an error with a reason code (R-01, R-02) | Escalate: `TOOL_NEEDS_REVIEW` (explanation includes the tool's reason code) | Planned: EQP-10, EQP-13 (cases E, F) |
+| R-10 | A tool returned `NEEDS_REVIEW` (R-03, R-04, R-05, R-08), or a lookup returned an error with a reason code (R-01, R-02) | Escalate: `TOOL_NEEDS_REVIEW` (explanation includes the tool's reason code) | Planned: EQP-10, EQP-13 (cases E, F) |
 | R-11 | The request names no single identifiable item (e.g. "something better for my desk") | Escalate: `AMBIGUOUS_ITEM` | Planned: EQP-13 (case D) |
 | R-12 | The request asks for more than one item | Escalate: `MULTIPLE_ITEMS` | Planned: EQP-10 |
 | R-13 | The request breaks policy, but the employee claims an exception: broken, damaged, lost or stolen equipment, an accessibility or medical need, or a role change | Escalate: `EXCEPTION_CLAIMED` (never deny) | Planned: EQP-13 (case C) |
@@ -119,7 +119,7 @@ Every draft response (approve, deny or escalate) is checked before it is final. 
 
 | ID | Rule | Outcome | Tests |
 |---|---|---|---|
-| R-24 | Tools never raise. Errors are returned as data: an `ErrorCode` (`INVALID_INPUT`, `NOT_FOUND`, `INTERNAL`), the domain reason code when there is one, and a message | Error result | `tests/test_employee_service.py`, `tests/test_employee_adapters.py`, `tests/test_policy_service.py`, `tests/test_policy_adapters.py` (REST and MCP); Planned: EQP-7, EQP-8 |
+| R-24 | Tools never raise. Errors are returned as data: an `ErrorCode` (`INVALID_INPUT`, `NOT_FOUND`, `INTERNAL`), the domain reason code when there is one, and a message | Error result | `tests/test_employee_service.py`, `tests/test_employee_adapters.py`, `tests/test_policy_service.py`, `tests/test_policy_adapters.py`, `tests/test_eligibility_service.py`, `tests/test_eligibility_adapters.py` (REST and MCP); Planned: EQP-8 |
 | R-25 | `flag_for_human_review` needs a non-empty reason written as `"<CODE>: explanation"`. Repeating the same employee and request returns the existing open ticket, whatever the reason wording | Ticket with status `PENDING_REVIEW`, stored with the parsed escalation code, or `OTHER` if the code is not recognized | Planned: EQP-8 |
 | R-26 | Codes are closed sets: tools and the agent only use the values in [Codes](#codes) | Fixed sets | `tests/test_codes.py`, `tests/test_requirements_doc.py` |
 
@@ -148,6 +148,7 @@ Defined in `server/codes.py`. Adding a code means updating the enum, this sectio
 | `UNKNOWN_ITEM` | NEEDS_REVIEW | Not a catalog item or alias (R-03) |
 | `CONFLICTING_RECORDS` | NEEDS_REVIEW | Employee records contradict each other (R-04) |
 | `HIGH_COST` | NEEDS_REVIEW | Unit cost above $2,500 (R-08) |
+| `NO_ITEM_POLICY` | NEEDS_REVIEW | The role has a policy, but none for this item: a data gap (R-05) |
 
 **Escalation code** (why the agent escalated; stored on the ticket)
 
@@ -166,7 +167,7 @@ Defined in `server/codes.py`. Adding a code means updating the enum, this sectio
 
 | Code | Meaning |
 |---|---|
-| `INVALID_INPUT` | Malformed input (e.g. an empty reason or a badly formed employee ID) |
+| `INVALID_INPUT` | Malformed input (e.g. an empty reason, a badly formed employee ID, or a REST body with a missing or wrongly typed field) |
 | `NOT_FOUND` | The employee or role does not exist |
 | `INTERNAL` | Unexpected failure inside the tool |
 

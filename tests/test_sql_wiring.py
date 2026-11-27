@@ -107,3 +107,17 @@ def test_rest_serves_seeded_postgres_policies(db_session: Session) -> None:
     assert body["role"] == "contractor"
     entitled = {p["item"]: p["refresh_months"] for p in body["policies"] if p["entitled"]}
     assert entitled == {"headset": 24, "keyboard": 24, "mouse": 24}
+
+
+def test_rest_checks_eligibility_against_seeded_postgres(db_session: Session) -> None:
+    seed(db_session, TODAY)
+    app = create_app(repositories=provide(SqlRepository(db_session)), clock=FixedClock(TODAY))
+
+    with TestClient(app) as client:
+        approve = client.post("/v1/eligibility", json={"employee_id": "E1001", "item": "Screen"})
+        deny = client.post("/v1/eligibility", json={"employee_id": "E1002", "item": "monitor"})
+
+    assert approve.json()["reason_code"] == "WITHIN_POLICY"
+    assert approve.json()["item"] == "monitor"
+    assert deny.json()["reason_code"] == "COOLDOWN_NOT_ELAPSED"
+    assert deny.json()["next_eligible_date"] == "2029-02-26"

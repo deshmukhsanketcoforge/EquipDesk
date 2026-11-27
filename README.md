@@ -12,7 +12,7 @@ Work is tracked as tickets EQP-1 to EQP-14 (Linear project EquipDesk).
 
 | Done | Still to come |
 |---|---|
-| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py`<br>**EQP-3:** PostgreSQL schema with Alembic migrations, idempotent demo seed, and repositories (Postgres + in-memory)<br>**EQP-4, EQP-5:** `get_employee_info` as a service, exposed over MCP and REST, with a smoke client<br>**EQP-6:** `get_policy_limits` (service, REST, MCP) | The other two tools (EQP-7, EQP-8), the agent (EQP-9 to EQP-12), evals and demo (EQP-13) |
+| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py`<br>**EQP-3:** PostgreSQL schema with Alembic migrations, idempotent demo seed, and repositories (Postgres + in-memory)<br>**EQP-4, EQP-5:** `get_employee_info` as a service, exposed over MCP and REST, with a smoke client<br>**EQP-6:** `get_policy_limits` (service, REST, MCP)<br>**EQP-7:** `check_request_eligibility` (service, REST, MCP): rules R-01 to R-09 | `flag_for_human_review` (EQP-8), the agent (EQP-9 to EQP-12), evals and demo (EQP-13) |
 
 `make demo` exists already, but it exits with a "not implemented yet" message until EQP-9.
 
@@ -46,6 +46,7 @@ make seed    # load the catalog, policies and demo employees (dates relative to 
 | http://localhost:8000/mcp | MCP endpoint (Streamable HTTP), for MCP clients only |
 | http://localhost:8000/v1/employees/E1001 | REST: same result as the `get_employee_info` MCP tool |
 | http://localhost:8000/v1/policies/engineer | REST: same result as the `get_policy_limits` MCP tool |
+| `POST /v1/eligibility` with `{"employee_id": "E1002", "item": "monitor"}` | REST: same result as the `check_request_eligibility` MCP tool (try it in Swagger) |
 
 Prove the MCP server and a client work together (lists the tools, then calls `get_employee_info` for E1001):
 
@@ -109,7 +110,8 @@ After changing dependencies in `pyproject.toml`, run `uv lock` and rebuild the i
 ```
 server/            FastAPI backend
   main.py          app factory: /health, Swagger, REST routes, MCP mounted at /mcp
-  mcp_tools.py     MCP tool definitions (ping, get_employee_info, get_policy_limits)
+  mcp_tools.py     MCP tool definitions (ping, get_employee_info, get_policy_limits,
+                   check_request_eligibility)
   rest.py          REST routes (/v1/...), same service functions as the MCP tools
   services/        business logic: one plain function per tool, errors returned as data
   config.py        settings from environment variables
