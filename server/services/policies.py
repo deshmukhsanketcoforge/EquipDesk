@@ -2,16 +2,14 @@
 
 import logging
 
-from pydantic import BaseModel
-
 from server.codes import ErrorCode, ReasonCode
 from server.repositories.base import Repository, normalize_name
-from server.services.results import ErrorResult, echo, error_result
+from server.services.results import ApiModel, ErrorResult, echo, error_result
 
 logger = logging.getLogger(__name__)
 
 
-class ItemPolicy(BaseModel):
+class ItemPolicy(ApiModel):
     item: str
     entitled: bool
     refresh_months: int | None
@@ -20,7 +18,7 @@ class ItemPolicy(BaseModel):
     """Whole months of tenure needed before the item can be granted."""
 
 
-class PolicyLimits(BaseModel):
+class PolicyLimits(ApiModel):
     role: str
     policies: list[ItemPolicy]
     """One entry per item that has a policy row for this role, in item order. The

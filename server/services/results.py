@@ -6,7 +6,7 @@ Tools never raise: failures come back as `{"error": {code, reason_code, message}
 import logging
 from collections.abc import Callable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from server.codes import ErrorCode, ReasonCode
 from server.repositories.base import Repository, RepositoryProvider
@@ -23,14 +23,21 @@ def echo(value: object) -> str:
     return text if len(text) <= MAX_ECHO else text[: MAX_ECHO - 3] + "..."
 
 
-class ToolError(BaseModel):
+class ApiModel(BaseModel):
+    """Base for every tool result and request body. Field docstrings become schema
+    descriptions in Swagger and in the MCP tool schemas, where they guide the LLM."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class ToolError(ApiModel):
     code: ErrorCode
     reason_code: ReasonCode | None = None
     """The domain reason when there is one, e.g. EMPLOYEE_NOT_FOUND."""
     message: str
 
 
-class ErrorResult(BaseModel):
+class ErrorResult(ApiModel):
     error: ToolError
 
 

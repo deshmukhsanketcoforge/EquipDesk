@@ -30,6 +30,7 @@ class ReasonCode(StrEnum):
     UNKNOWN_ITEM = "UNKNOWN_ITEM"
     CONFLICTING_RECORDS = "CONFLICTING_RECORDS"
     HIGH_COST = "HIGH_COST"
+    NO_ITEM_POLICY = "NO_ITEM_POLICY"
 
 
 REASON_VERDICT: Mapping[ReasonCode, Verdict] = MappingProxyType(
@@ -43,6 +44,7 @@ REASON_VERDICT: Mapping[ReasonCode, Verdict] = MappingProxyType(
         ReasonCode.UNKNOWN_ITEM: Verdict.NEEDS_REVIEW,
         ReasonCode.CONFLICTING_RECORDS: Verdict.NEEDS_REVIEW,
         ReasonCode.HIGH_COST: Verdict.NEEDS_REVIEW,
+        ReasonCode.NO_ITEM_POLICY: Verdict.NEEDS_REVIEW,
     }
 )
 """The verdict each reason code belongs to."""

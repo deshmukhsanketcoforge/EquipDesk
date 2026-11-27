@@ -4,6 +4,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from mcp.server.transport_security import TransportSecuritySettings
 from sqlalchemy import Engine, create_engine
 
@@ -12,7 +13,7 @@ from server.config import Settings
 from server.mcp_tools import build_mcp_server
 from server.repositories.base import RepositoryProvider
 from server.repositories.sql import sql_repositories
-from server.rest import build_router
+from server.rest import build_router, invalid_request_handler
 
 
 def create_app(
@@ -67,6 +68,7 @@ def create_app(
         return {"status": "ok"}
 
     app.include_router(build_router(repositories, clock))
+    app.add_exception_handler(RequestValidationError, invalid_request_handler)
 
     # Mounted last at the root so the MCP endpoint is exactly /mcp (no redirect)
     # while FastAPI's own routes (/health, /docs, /v1/...) still match first.

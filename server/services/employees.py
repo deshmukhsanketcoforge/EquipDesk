@@ -4,25 +4,23 @@ import logging
 import re
 from datetime import date
 
-from pydantic import BaseModel
-
 from server.clock import Clock
 from server.codes import ErrorCode, ReasonCode
 from server.dates import whole_months_between
 from server.repositories.base import Repository
-from server.services.results import ErrorResult, echo, error_result
+from server.services.results import ApiModel, ErrorResult, echo, error_result
 
 logger = logging.getLogger(__name__)
 
 EMPLOYEE_ID = re.compile(r"E[0-9]{4}")  # ASCII only: \d would accept any Unicode digit
 
 
-class EquipmentOnFile(BaseModel):
+class EquipmentOnFile(ApiModel):
     item: str
     acquired_on: date
 
 
-class EmployeeInfo(BaseModel):
+class EmployeeInfo(ApiModel):
     employee_id: str
     name: str
     role: str

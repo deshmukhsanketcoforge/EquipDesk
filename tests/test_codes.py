@@ -22,6 +22,7 @@ def test_reason_code_values() -> None:
         "UNKNOWN_ITEM",
         "CONFLICTING_RECORDS",
         "HIGH_COST",
+        "NO_ITEM_POLICY",
     }
 
 
@@ -56,6 +57,7 @@ def test_reason_codes_are_grouped_by_verdict() -> None:
             "UNKNOWN_ITEM",
             "CONFLICTING_RECORDS",
             "HIGH_COST",
+            "NO_ITEM_POLICY",
         },
     }
 
