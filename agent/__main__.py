@@ -4,9 +4,13 @@ import sys
 
 
 def main() -> int:
-    print("The EquipDesk agent is not implemented yet (EQP-9 to EQP-13).", file=sys.stderr)
+    print(
+        "The EquipDesk ReAct demo is not implemented yet (EQP-10 to EQP-13). "
+        "For the one-call proof, run `make one-call`.",
+        file=sys.stderr,
+    )
     return 1
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     sys.exit(main())
