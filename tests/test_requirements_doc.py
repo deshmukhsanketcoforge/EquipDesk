@@ -61,7 +61,9 @@ def test_every_rule_row_has_rule_outcome_and_tests_columns(doc: str) -> None:
 def test_no_rule_is_still_planned_for_a_done_ticket(doc: str) -> None:
     # Rules list "Planned: EQP-n" until that ticket names its real tests.
     for rule_id, cells in _rules(doc):
-        assert "Planned: EQP-12" not in cells[-1], f"{rule_id} should name its EQP-12 tests"
+        for ticket in ("EQP-12", "EQP-13"):
+            message = f"{rule_id} should name its {ticket} tests"
+            assert f"Planned: {ticket}" not in cells[-1], message
 
 
 def test_every_rule_names_its_tests(doc: str) -> None:

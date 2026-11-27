@@ -34,6 +34,7 @@ FROM base AS runtime
 
 COPY server ./server
 COPY agent ./agent
+COPY evals ./evals
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY scripts/__init__.py scripts/smoke_client.py ./scripts/

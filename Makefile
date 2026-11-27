@@ -1,4 +1,4 @@
-.PHONY: help test build up down logs seed smoke one-call ask demo
+.PHONY: help test build up down logs seed smoke one-call ask demo eval
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
@@ -33,6 +33,10 @@ ask: ## One request through the full ReAct loop on the real model, e.g. ARGS='--
 	mkdir -p artifacts/traces
 	docker compose --profile demo run --rm --build agent python -m agent.react_agent $(ARGS)
 
-demo: ## Run the agent demo against the real model (needs FOUNDRY_* env)
+demo: ## Demo cases A-F on the real model (after make seed), e.g. ARGS='--case B --seed-flawed-draft'
 	mkdir -p artifacts/traces
-	docker compose --profile demo run --rm --build agent
+	docker compose --profile demo run --rm --build agent python -m agent.run_demo $(ARGS)
+
+eval: ## Live eval: every case in evals/cases.yaml k times, scored (after make seed; billed)
+	mkdir -p artifacts/eval
+	docker compose --profile demo run --rm --build agent python -m agent.run_demo --eval $(ARGS)

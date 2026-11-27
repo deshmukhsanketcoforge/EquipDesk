@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-EQP-1 to EQP-12 are done: Docker, CI, the database, all four MCP tools (service, REST and MCP), the agent's Foundry LLM client, MCP client and one-call proof (`make one-call`), the ReAct loop with traces (`make ask`), the decision JSON with its guardrails, and reflection (`agent/reflection.py`, `make ask ARGS='... --seed-flawed-draft'`). Evals and the demo (EQP-13) and the evidence pack (EQP-14) are still to come; the README's Status table is the current list. **`PLAN.md` is the source of truth** for scope, decisions, ticket order and the deliverable mapping. Read it before starting any ticket. Commands and modules for later tickets (e.g. `run_demo`, `evals/cases.yaml`) do not exist yet, so verify before relying on them.
+EQP-1 to EQP-13 are done: Docker, CI, the database, all four MCP tools (service, REST and MCP), the agent's Foundry LLM client, MCP client and one-call proof (`make one-call`), the ReAct loop with traces (`make ask`), the decision JSON with its guardrails, reflection (`agent/reflection.py`), and the eval cases, demo and live eval (`evals/cases.yaml`, `agent/evals.py`, `agent/run_demo.py`, `make demo`, `make eval`, the `live-eval` CI job). The evidence pack (EQP-14) is still to come; the README's Status table is the current list. **`PLAN.md` is the source of truth** for scope, decisions, ticket order and the deliverable mapping. Read it before starting any ticket.
 
 ## What this is
 
@@ -15,7 +15,7 @@ W7 CoForge lab: an IT equipment-request handler. A ReAct agent (Claude Opus 5.5,
 - Tests + lint: `docker compose run --rm test` (ruff, mypy, pytest with coverage). `make test` is a wrapper.
 - Single test: `docker compose run --rm test pytest tests/path/test_x.py::test_name -q`
 - Run stack: `docker compose up` (services `db`, `api`, `agent`). Swagger at `/docs`, MCP at `/mcp`.
-- Seed DB: `make seed` (idempotent). One-call proof on the real model: `make one-call`. Live demo (from EQP-13): `make demo`. Both run the `agent` compose service and need the `FOUNDRY_*` env vars.
+- Seed DB: `make seed` (idempotent). One-call proof on the real model: `make one-call`. Demo (cases A–F): `make demo`; live eval (every case k times, scored, billed): `make eval`. All three run the `agent` compose service and need the `FOUNDRY_*` env vars.
 
 ## Architecture (big picture)
 
