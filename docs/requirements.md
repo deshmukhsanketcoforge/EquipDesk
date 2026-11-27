@@ -60,7 +60,7 @@ Definitions used by the rules:
 - **Minimum tenure** is 3 months for a laptop (every entitled role) and for anything a contractor requests.
 - **Cooldown is per catalog item.** It starts from the most recent item on file of the same catalog item, so a new keyboard does not affect a headset request. The shared "Keyboard / Mouse / Headset" column is only a layout shortcut: each of the three has its own policy entry with the same values. The employee becomes eligible again on the **next eligible date** = that item's acquired date + the refresh period, in calendar months; if that day doesn't exist in the month, the last day of the month is used. Eligible **on** that date, not only after it.
 - **Review threshold:** a unit cost above $2,500 needs human approval even when everything else passes.
-- "Today" comes from the system clock in production and a fixed clock in tests.
+- "Today" is the UTC date, from the system clock in production and a fixed clock in tests.
 
 ## Eligibility rules
 
@@ -119,8 +119,8 @@ Every draft response (approve, deny or escalate) is checked before it is final. 
 
 | ID | Rule | Outcome | Tests |
 |---|---|---|---|
-| R-24 | Tools never raise. Errors are returned as data: an `ErrorCode` (`INVALID_INPUT`, `NOT_FOUND`, `INTERNAL`), the domain reason code when there is one, and a message | Error result | `tests/test_employee_service.py`, `tests/test_employee_adapters.py`, `tests/test_policy_service.py`, `tests/test_policy_adapters.py`, `tests/test_eligibility_service.py`, `tests/test_eligibility_adapters.py` (REST and MCP); Planned: EQP-8 |
-| R-25 | `flag_for_human_review` needs a non-empty reason written as `"<CODE>: explanation"`. Repeating the same employee and request returns the existing open ticket, whatever the reason wording | Ticket with status `PENDING_REVIEW`, stored with the parsed escalation code, or `OTHER` if the code is not recognized | Planned: EQP-8 |
+| R-24 | Tools never raise. Errors are returned as data: an `ErrorCode` (`INVALID_INPUT`, `NOT_FOUND`, `INTERNAL`), the domain reason code when there is one, and a message | Error result | `tests/test_employee_service.py`, `tests/test_employee_adapters.py`, `tests/test_policy_service.py`, `tests/test_policy_adapters.py`, `tests/test_eligibility_service.py`, `tests/test_eligibility_adapters.py`, `tests/test_review_service.py`, `tests/test_review_adapters.py` (REST and MCP) |
+| R-25 | `flag_for_human_review` needs a non-empty request and reason (at most 2,000 characters each), the reason written as `"<CODE>: explanation"`. Repeating the same employee and request text (ignoring case and extra whitespace) returns the existing open ticket, whatever the reason wording | Ticket with status `PENDING_REVIEW`, stored with the parsed escalation code, or `OTHER` if the code is not recognized | `tests/test_review_service.py`, `tests/test_review_adapters.py`, `tests/test_sql_wiring.py` (ticket saved) |
 | R-26 | Codes are closed sets: tools and the agent only use the values in [Codes](#codes) | Fixed sets | `tests/test_codes.py`, `tests/test_requirements_doc.py` |
 
 ## Codes
@@ -167,7 +167,7 @@ Defined in `server/codes.py`. Adding a code means updating the enum, this sectio
 
 | Code | Meaning |
 |---|---|
-| `INVALID_INPUT` | Malformed input (e.g. an empty reason, a badly formed employee ID, or a REST body with a missing or wrongly typed field) |
+| `INVALID_INPUT` | Malformed input (e.g. an empty or overlong reason, a badly formed employee ID, or a REST body with a missing or wrongly typed field) |
 | `NOT_FOUND` | The employee or role does not exist |
 | `INTERNAL` | Unexpected failure inside the tool |
 

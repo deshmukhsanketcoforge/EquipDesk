@@ -11,11 +11,12 @@ from pydantic import BaseModel
 from server.clock import Clock
 from server.codes import ErrorCode
 from server.repositories.base import RepositoryProvider
-from server.services import eligibility, employees, policies
+from server.services import eligibility, employees, policies, review
 from server.services.eligibility import EligibilityResult
 from server.services.employees import EmployeeInfo
 from server.services.policies import PolicyLimits
 from server.services.results import ApiModel, ErrorResult, call_with_repository, error_result
+from server.services.review import ReviewTicketResult
 
 ERROR_STATUS: dict[ErrorCode, int] = {
     ErrorCode.INVALID_INPUT: 400,
@@ -50,6 +51,14 @@ class EligibilityRequest(ApiModel):
     employee_id: str
     item: str
     """One catalog item name or alias, as the employee wrote it (e.g. "screen")."""
+
+
+class ReviewTicketRequest(ApiModel):
+    employee_id: str
+    request: str
+    """The employee's request text, as they wrote it. Same text = same ticket."""
+    reason: str
+    """'<CODE>: explanation', where CODE is an EscalationCode (unknown codes become OTHER)."""
 
 
 def _respond[T: BaseModel](result: T | ErrorResult) -> T | JSONResponse:
@@ -112,6 +121,25 @@ def build_router(repositories: RepositoryProvider, clock: Clock) -> APIRouter:
                 repositories,
                 lambda repo: eligibility.check_request_eligibility(
                     request.employee_id, request.item, repo=repo, clock=clock
+                ),
+            )
+        )
+
+    @router.post(
+        "/review-tickets",
+        operation_id="flag_for_human_review",
+        response_model=ReviewTicketResult,
+        responses={code: ERROR_RESPONSES[code] for code in (400, 500)},
+        summary="Escalate a request to a human reviewer",
+    )
+    def flag_for_human_review(request: ReviewTicketRequest) -> ReviewTicketResult | JSONResponse:
+        """Same operation as the `flag_for_human_review` MCP tool. Idempotent: the same
+        employee and request text return the same open ticket, whatever the reason."""
+        return _respond(
+            call_with_repository(
+                repositories,
+                lambda repo: review.flag_for_human_review(
+                    request.employee_id, request.request, request.reason, repo=repo, clock=clock
                 ),
             )
         )

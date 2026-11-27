@@ -146,15 +146,19 @@ def _to_ticket(row: ReviewTicketRow) -> ReviewTicket:
 def sql_repositories(engine: Engine) -> RepositoryProvider:
     """One new session per REST request or MCP tool call, closed afterwards.
 
-    Closing rolls back whatever is left, so a database error in one call can
-    never leave a broken session behind for the next (no PendingRollbackError).
-    Nothing is committed here: the read-only tools need no commit, and the
-    ticket-writing tool commits explicitly (EQP-8).
+    The scope commits when the call finishes normally (only flag_for_human_review
+    writes anything) and rolls back if it raises; call_with_repository raises
+    through it when the service returned an ErrorResult, so errors commit nothing.
+    A failed commit raises out of the scope, and call_with_repository turns that
+    into INTERNAL, so a ticket is never reported unless it was saved. Closing
+    always resets the session, so a database error in one call never breaks the
+    next (no PendingRollbackError).
     """
 
     @contextmanager
     def scope() -> Iterator[Repository]:
         with Session(engine) as session:
             yield SqlRepository(session)
+            session.commit()
 
     return scope

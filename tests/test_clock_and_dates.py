@@ -1,6 +1,6 @@
-"""EQP-3/EQP-4: injected clock (PLAN.md D6) and calendar-month arithmetic."""
+"""EQP-3/EQP-4/EQP-8: injected clock (PLAN.md D6) and calendar-month arithmetic."""
 
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
@@ -12,8 +12,33 @@ def test_fixed_clock_returns_its_date() -> None:
     assert FixedClock(date(2026, 1, 31)).today() == date(2026, 1, 31)
 
 
-def test_system_clock_returns_today() -> None:
-    assert SystemClock().today() == date.today()
+def test_system_clock_returns_the_utc_date() -> None:
+    # UTC, not the host's local date (date.today()), which differs near midnight
+    # on machines in other time zones. Read before and after to survive midnight.
+    before = datetime.now(UTC).date()
+    today = SystemClock().today()
+    after = datetime.now(UTC).date()
+    assert today in {before, after}
+
+
+def test_fixed_clock_now_is_midnight_utc_on_its_date() -> None:
+    assert FixedClock(date(2026, 11, 26)).now() == datetime(2026, 11, 26, tzinfo=UTC)
+
+
+def test_system_clock_today_is_the_utc_date_of_now() -> None:
+    # One time zone for both, so a ticket's created_at and the eligibility "today"
+    # of the same run never fall on different days.
+    class LateEvening(SystemClock):
+        def now(self) -> datetime:
+            return datetime(2026, 11, 26, 23, 59, tzinfo=UTC)
+
+    assert LateEvening().today() == date(2026, 11, 26)
+
+
+def test_system_clock_now_is_aware_utc() -> None:
+    now = SystemClock().now()
+    assert now.utcoffset() == timedelta(0)
+    assert abs(datetime.now(UTC) - now) < timedelta(seconds=5)
 
 
 @pytest.mark.parametrize(

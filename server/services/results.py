@@ -47,10 +47,21 @@ def error_result(
     return ErrorResult(error=ToolError(code=code, reason_code=reason_code, message=message))
 
 
+class _Discard(Exception):
+    """Raised through the repository scope to roll it back and keep the error."""
+
+    def __init__(self, result: ErrorResult) -> None:
+        super().__init__(result.error.message)
+        self.result = result
+
+
 def call_with_repository[T](
     repositories: RepositoryProvider, call: Callable[[Repository], T]
 ) -> T | ErrorResult:
     """Open a repository scope, run one service call in it, and close it.
+
+    The scope is committed only when the call returns a successful result; an
+    ErrorResult rolls it back.
 
     The services already turn their own failures into error results; this also
     covers failures while opening or closing the scope (e.g. the database is
@@ -58,7 +69,14 @@ def call_with_repository[T](
     """
     try:
         with repositories() as repo:
-            return call(repo)
+            result = call(repo)
+            if isinstance(result, ErrorResult):
+                # End the scope as a failure so nothing written before the error
+                # is committed while the caller is told it failed.
+                raise _Discard(result)
+            return result
+    except _Discard as discard:
+        return discard.result
     except Exception:
         logger.exception("repository scope failed")
         return error_result(ErrorCode.INTERNAL, "Unexpected error while accessing the data.")
