@@ -5,11 +5,14 @@ description = "IT equipment request handler: ReAct agent over an MCP server (W7 
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "alembic>=1.20.1",
     "fastapi>=0.165.0",
     "httpx>=0.29.0",
     "mcp>=2.3.0",
+    "psycopg[binary]>=3.3.9",
     "pydantic>=2.14.4",
     "pydantic-settings>=2.16.3",
+    "sqlalchemy>=2.1.9",
     "uvicorn[standard]>=0.54.0",
 ]
 
@@ -46,6 +49,7 @@ enable_error_code = ["deprecated"]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra"
+filterwarnings = ["error::sqlalchemy.exc.SADeprecationWarning"]
 
 [tool.coverage.run]
 branch = true

@@ -21,6 +21,9 @@ services:
     build:
       context: .
       target: runtime
+    # The only place migrations run (so two runs never race). `make seed` waits for this
+    # container to be healthy, i.e. migrated, before seeding inside it.
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn server.main:app --host 0.0.0.0 --port 8000"]
     environment:
       DATABASE_URL: *database-url
     ports:

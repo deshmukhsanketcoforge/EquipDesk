@@ -12,9 +12,9 @@ Work is tracked as tickets EQP-1 to EQP-14 (Linear project EquipDesk).
 
 | Done | Still to come |
 |---|---|
-| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py` | Database and seed data (EQP-3), the four equipment tools (EQP-4 to EQP-8), the agent (EQP-9 to EQP-12), evals and demo (EQP-13) |
+| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py`<br>**EQP-3:** PostgreSQL schema with Alembic migrations, idempotent demo seed, and repositories (Postgres + in-memory) | The four equipment tools (EQP-4 to EQP-8), the agent (EQP-9 to EQP-12), evals and demo (EQP-13) |
 
-`make seed` and `make demo` exist already, but they exit with a "not implemented yet" message until their tickets land.
+`make demo` exists already, but it exits with a "not implemented yet" message until EQP-9.
 
 ## Prerequisites
 
@@ -35,7 +35,8 @@ Then point your editor at `.venv/bin/python` (in VS Code: Command Palette → "P
 ## Quick start
 
 ```sh
-make up      # start Postgres and the API, wait until both are healthy
+make up      # start Postgres and the API (applies migrations), wait until both are healthy
+make seed    # load the catalog, policies and demo employees (dates relative to today)
 ```
 
 | URL | What it is |
@@ -70,6 +71,8 @@ make test                    # or: docker compose run --rm test
 
 This runs [scripts/check.sh](scripts/check.sh) in the `test` container: ruff lint, ruff format check, mypy, then pytest with a coverage gate (at least 90% on `server/`). CI runs exactly the same command.
 
+Database tests create a fresh `equipdesk_test` database on the compose Postgres, migrate it to the latest schema, and roll back each test's changes. Repository tests run against both the Postgres and the in-memory implementation.
+
 Run a single test:
 
 ```sh
@@ -87,7 +90,7 @@ After changing dependencies in `pyproject.toml`, run `uv lock` and rebuild the i
 | `make down` | Stop all containers and remove the database volume |
 | `make logs` | Follow the API logs |
 | `make build` | Build all images |
-| `make seed` | Seed the database (from EQP-3) |
+| `make seed` | Load demo data, starting `db` and `api` first if needed (the API applies migrations on startup). Safe to rerun: replaces demo data, keeps review tickets |
 | `make demo` | Run the agent against the real model (from EQP-9; needs `FOUNDRY_*` env vars) |
 
 ## Project layout
@@ -98,6 +101,11 @@ server/            FastAPI backend
   mcp_tools.py     MCP tool definitions (currently: ping)
   config.py        settings from environment variables
   codes.py         fixed code sets: verdicts, reason, escalation and error codes
+  records.py       plain data records used by repositories and services
+  clock.py         injected clock (real in the app, fixed in tests)
+  db/              SQLAlchemy models, seed data and seed writer
+  repositories/    data access: Postgres (sql.py) and in-memory fake (memory.py)
+migrations/        Alembic migrations
 docs/
   requirements.md  requirements, policy rules (R-01 to R-26), codes, worked examples
 agent/             ReAct agent (placeholder until EQP-9)
@@ -125,4 +133,4 @@ GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs the `
 
 ## Tech stack
 
-Python 3.12, FastAPI, the official MCP Python SDK (2.x, `MCPServer`), PostgreSQL 16, uv, ruff, mypy, pytest, Docker Compose, GitHub Actions. Planned: SQLAlchemy 2 and Alembic (EQP-3), Claude Sonnet 5.5 via Azure AI Foundry (EQP-9).
+Python 3.12, FastAPI, the official MCP Python SDK (2.x, `MCPServer`), PostgreSQL 16, SQLAlchemy 2, Alembic, uv, ruff, mypy, pytest, Docker Compose, GitHub Actions. Planned: Claude Sonnet 5.5 via Azure AI Foundry (EQP-9).
