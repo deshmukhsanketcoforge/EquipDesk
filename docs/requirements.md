@@ -2,7 +2,7 @@
 
 EquipDesk handles internal IT equipment requests. An employee sends a request in plain language ("I need a second monitor"). An agent looks up the employee and the policy through four MCP tools, then **approves**, **denies** or **escalates** the request to a human reviewer.
 
-Every rule below has an ID (`R-xx`) and names the tests that cover it. "Planned" means the test is written in that ticket, test-first; each ticket replaces its "Planned" entries with the real test paths, and by EQP-14 none may remain. `tests/test_requirements_doc.py` checks that this document and the code in `server/codes.py` stay in sync.
+Every rule below has an ID (`R-xx`) and names the test files that cover it. `tests/test_requirements_doc.py` checks that this document and the code in `server/codes.py` stay in sync, and that every rule names test files that exist.
 
 ## Request data
 

@@ -27,7 +27,7 @@ services:
     environment:
       DATABASE_URL: *database-url
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000" # API_PORT=8001 if 8000 is taken
     depends_on:
       db:
         condition: service_healthy

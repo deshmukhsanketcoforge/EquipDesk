@@ -1,0 +1,785 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "EquipDesk API",
+    "description": "IT equipment request handling. The same operations are exposed as MCP tools at `/mcp`.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/employees/{employee_id}": {
+      "get": {
+        "tags": [
+          "equipment requests"
+        ],
+        "summary": "Employee role, tenure and equipment on file",
+        "description": "Same operation as the `get_employee_info` MCP tool.",
+        "operationId": "get_employee_info",
+        "parameters": [
+          {
+            "name": "employee_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Employee Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT: malformed input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no such record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResult"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL: unexpected failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/policies/{role}": {
+      "get": {
+        "tags": [
+          "equipment requests"
+        ],
+        "summary": "What a role is entitled to and how often",
+        "description": "Same operation as the `get_policy_limits` MCP tool.",
+        "operationId": "get_policy_limits",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyLimits"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT: malformed input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no such record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResult"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL: unexpected failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/eligibility": {
+      "post": {
+        "tags": [
+          "equipment requests"
+        ],
+        "summary": "Is this employee eligible for this item today?",
+        "description": "Same operation as the `check_request_eligibility` MCP tool. Every verdict,\nincluding NEEDS_REVIEW, is a 200; only malformed input or a failure is an error.",
+        "operationId": "check_request_eligibility",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EligibilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EligibilityResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT: malformed input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResult"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL: unexpected failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/review-tickets": {
+      "post": {
+        "tags": [
+          "equipment requests"
+        ],
+        "summary": "Escalate a request to a human reviewer",
+        "description": "Same operation as the `flag_for_human_review` MCP tool. Idempotent: the same\nemployee and request text return the same open ticket, whatever the reason.",
+        "operationId": "flag_for_human_review",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewTicketRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewTicketResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT: malformed input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResult"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL: unexpected failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EligibilityRequest": {
+        "properties": {
+          "employee_id": {
+            "type": "string",
+            "title": "Employee Id"
+          },
+          "item": {
+            "type": "string",
+            "title": "Item",
+            "description": "One catalog item name or alias, as the employee wrote it (e.g. \"screen\")."
+          }
+        },
+        "type": "object",
+        "required": [
+          "employee_id",
+          "item"
+        ],
+        "title": "EligibilityRequest"
+      },
+      "EligibilityResult": {
+        "properties": {
+          "employee_id": {
+            "type": "string",
+            "title": "Employee Id"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role",
+            "description": "None when the employee was not found."
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item",
+            "description": "The catalog item the request resolved to; None if not reached or unknown."
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/Verdict"
+          },
+          "reason_code": {
+            "$ref": "#/components/schemas/ReasonCode"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "tenure_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenure Months"
+          },
+          "min_tenure_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Tenure Months"
+          },
+          "refresh_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Months",
+            "description": "One new item of this kind every N months; None when not entitled."
+          },
+          "last_acquired_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Acquired On",
+            "description": "The most recent item of this kind on file, if any."
+          },
+          "next_eligible_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Eligible Date",
+            "description": "last_acquired_on + refresh_months; eligible ON this date (R-07)."
+          },
+          "unit_cost_usd": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Cost Usd"
+          }
+        },
+        "type": "object",
+        "required": [
+          "employee_id",
+          "role",
+          "item",
+          "verdict",
+          "reason_code",
+          "explanation",
+          "tenure_months",
+          "min_tenure_months",
+          "refresh_months",
+          "last_acquired_on",
+          "next_eligible_date",
+          "unit_cost_usd"
+        ],
+        "title": "EligibilityResult"
+      },
+      "EmployeeInfo": {
+        "properties": {
+          "employee_id": {
+            "type": "string",
+            "title": "Employee Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "hire_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Hire Date"
+          },
+          "tenure_months": {
+            "type": "integer",
+            "title": "Tenure Months",
+            "description": "Whole months from the hire date to today. Negative (or 0) when the hire\ndate is in the future: the lookup reports records as they are, and\ncheck_request_eligibility turns that into CONFLICTING_RECORDS (R-04)."
+          },
+          "equipment": {
+            "items": {
+              "$ref": "#/components/schemas/EquipmentOnFile"
+            },
+            "type": "array",
+            "title": "Equipment",
+            "description": "Oldest first."
+          }
+        },
+        "type": "object",
+        "required": [
+          "employee_id",
+          "name",
+          "role",
+          "hire_date",
+          "tenure_months",
+          "equipment"
+        ],
+        "title": "EmployeeInfo"
+      },
+      "EquipmentOnFile": {
+        "properties": {
+          "item": {
+            "type": "string",
+            "title": "Item"
+          },
+          "acquired_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Acquired On"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item",
+          "acquired_on"
+        ],
+        "title": "EquipmentOnFile"
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "INVALID_INPUT",
+          "NOT_FOUND",
+          "INTERNAL"
+        ],
+        "title": "ErrorCode",
+        "description": "Category of a tool error returned as data (tools never raise)."
+      },
+      "ErrorResult": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ToolError"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResult"
+      },
+      "EscalationCode": {
+        "type": "string",
+        "enum": [
+          "EXCEPTION_CLAIMED",
+          "AMBIGUOUS_ITEM",
+          "MULTIPLE_ITEMS",
+          "REQUEST_CONTRADICTS_DATA",
+          "POLICY_OVERRIDE_ATTEMPT",
+          "TOOL_NEEDS_REVIEW",
+          "GUARDRAIL_OVERRIDE",
+          "OTHER"
+        ],
+        "title": "EscalationCode",
+        "description": "Why the agent escalated a request (stored on review tickets)."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ItemPolicy": {
+        "properties": {
+          "item": {
+            "type": "string",
+            "title": "Item"
+          },
+          "entitled": {
+            "type": "boolean",
+            "title": "Entitled"
+          },
+          "refresh_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Months",
+            "description": "One new item every this many months; None when the role is not entitled."
+          },
+          "min_tenure_months": {
+            "type": "integer",
+            "title": "Min Tenure Months",
+            "description": "Whole months of tenure needed before the item can be granted."
+          }
+        },
+        "type": "object",
+        "required": [
+          "item",
+          "entitled",
+          "refresh_months",
+          "min_tenure_months"
+        ],
+        "title": "ItemPolicy"
+      },
+      "PolicyLimits": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "policies": {
+            "items": {
+              "$ref": "#/components/schemas/ItemPolicy"
+            },
+            "type": "array",
+            "title": "Policies",
+            "description": "One entry per item that has a policy row for this role, in item order. The\nseed writes a row for every catalog item and role (tests/test_seed_data.py)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "policies"
+        ],
+        "title": "PolicyLimits"
+      },
+      "ReasonCode": {
+        "type": "string",
+        "enum": [
+          "WITHIN_POLICY",
+          "COOLDOWN_NOT_ELAPSED",
+          "ROLE_NOT_ENTITLED",
+          "TENURE_TOO_SHORT",
+          "EMPLOYEE_NOT_FOUND",
+          "UNKNOWN_ROLE",
+          "UNKNOWN_ITEM",
+          "CONFLICTING_RECORDS",
+          "HIGH_COST",
+          "NO_ITEM_POLICY"
+        ],
+        "title": "ReasonCode",
+        "description": "Why a tool reached its verdict (or why a lookup failed)."
+      },
+      "ReviewTicketRequest": {
+        "properties": {
+          "employee_id": {
+            "type": "string",
+            "title": "Employee Id"
+          },
+          "request": {
+            "type": "string",
+            "title": "Request",
+            "description": "The employee's request text, as they wrote it. Same text = same ticket."
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "'<CODE>: explanation', where CODE is an EscalationCode (unknown codes become OTHER)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "employee_id",
+          "request",
+          "reason"
+        ],
+        "title": "ReviewTicketRequest"
+      },
+      "ReviewTicketResult": {
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "title": "Ticket Id",
+            "description": "E.g. \"TKT-000042\". The same request always returns the same open ticket."
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "PENDING_REVIEW until a human picks the ticket up."
+          },
+          "employee_id": {
+            "type": "string",
+            "title": "Employee Id"
+          },
+          "escalation_code": {
+            "$ref": "#/components/schemas/EscalationCode",
+            "description": "Parsed from the reason when the ticket was created; OTHER if not recognized."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticket_id",
+          "status",
+          "employee_id",
+          "escalation_code",
+          "created_at"
+        ],
+        "title": "ReviewTicketResult"
+      },
+      "ToolError": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReasonCode"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The domain reason when there is one, e.g. EMPLOYEE_NOT_FOUND."
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ToolError"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "Verdict": {
+        "type": "string",
+        "enum": [
+          "ELIGIBLE",
+          "INELIGIBLE",
+          "NEEDS_REVIEW"
+        ],
+        "title": "Verdict",
+        "description": "Result of check_request_eligibility."
+      }
+    }
+  }
+}

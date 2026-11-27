@@ -1,4 +1,4 @@
-.PHONY: help test build up down logs seed smoke one-call ask demo eval
+.PHONY: help test build up down logs seed smoke one-call ask demo eval openapi
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
@@ -6,6 +6,10 @@ help: ## List targets
 test: ## Lint, type-check and run tests in Docker (same as CI)
 	docker compose build test
 	docker compose run --rm test
+
+openapi: ## Re-export openapi.json after an API change (a test fails if it drifts)
+	docker compose build test
+	docker compose run --rm test python -m scripts.export_openapi
 
 build: ## Build all images
 	docker compose --profile test --profile demo build

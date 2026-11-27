@@ -58,12 +58,12 @@ def test_every_rule_row_has_rule_outcome_and_tests_columns(doc: str) -> None:
         assert len(cells) == 3, f"{rule_id} should have Rule, Outcome and Tests columns"
 
 
-def test_no_rule_is_still_planned_for_a_done_ticket(doc: str) -> None:
-    # Rules list "Planned: EQP-n" until that ticket names its real tests.
+def test_no_rule_is_still_planned(doc: str) -> None:
+    # Rules listed "Planned: EQP-n" until that ticket named its real tests; after
+    # EQP-14 every rule names real test files.
     for rule_id, cells in _rules(doc):
-        for ticket in ("EQP-12", "EQP-13"):
-            message = f"{rule_id} should name its {ticket} tests"
-            assert f"Planned: {ticket}" not in cells[-1], message
+        assert "Planned" not in cells[-1], f"{rule_id} should name its real tests"
+        assert TEST_PATH.search(cells[-1]), f"{rule_id} names no test file"
 
 
 def test_every_rule_names_its_tests(doc: str) -> None:
