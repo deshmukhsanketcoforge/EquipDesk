@@ -1,6 +1,6 @@
-"""The ReAct trace: every Thought -> Action -> Observation of one run, with tokens
-and latency, rendered as JSON (for machines: evals, reflection) and Markdown (for
-people: the submission's deliverable #6). PLAN.md §7.
+"""The ReAct trace: every Thought -> Action -> Observation of one run, each draft's
+reflection, with tokens and latency, rendered as JSON (for machines: evals) and
+Markdown (for people: the submission's deliverables #6 and #8). PLAN.md §7, §8.
 """
 
 import json
@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, computed_field
 
-from agent.decision import Decision
+from agent.decision import Decision, Draft, Reflection
 
 _SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
 
@@ -36,6 +36,9 @@ class EndReason(StrEnum):
     """The tool results did not support the model's decision (R-16 to R-18): forced escalation."""
     INVALID_DECISION = "invalid_decision"
     """The model's decision JSON was invalid twice: forced escalation."""
+    REFLECTION = "reflection"
+    """Reflection still found issues after the one revision, or its critic failed
+    (R-20 to R-23): forced escalation."""
 
 
 class Action(BaseModel):
@@ -56,8 +59,9 @@ class Step(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     index: int
-    actor: Literal["model", "harness"]
-    """`harness` marks a forced escalation the code made, not the model."""
+    actor: Literal["model", "harness", "reflection"]
+    """`harness` marks a forced escalation the code made, not the model;
+    `reflection` the check of one draft (its tokens are the critic's)."""
     thought: str
     actions: list[Action]
     answer: str | None
@@ -66,6 +70,8 @@ class Step(BaseModel):
     input_tokens: int
     output_tokens: int
     llm_latency_ms: float
+    reflection: Reflection | None = None
+    """The reflection record (actor `reflection` only)."""
 
 
 class Outcome(BaseModel):
@@ -97,6 +103,14 @@ class Trace(BaseModel):
     cap stopped before it ran is not counted; a turn rejected for a missing Thought is."""
     steps: list[Step]
     outcome: Outcome
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def seeded(self) -> bool:
+        """A known-bad draft was injected (--seed-flawed-draft, PLAN.md §8). Read from
+        the reflection steps, not the flag: a run that ended before any draft was
+        seeded with nothing."""
+        return any(step.reflection is not None and step.reflection.seeded for step in self.steps)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -166,6 +180,59 @@ def _decision(decision: Decision) -> list[str]:
     return lines
 
 
+def _draft_label(reflection: Reflection) -> str:
+    seeded = " [SEEDED, flawed]" if reflection.seeded else ""
+    return f"Draft {reflection.draft_number}{seeded}"
+
+
+def _draft(draft: Draft) -> list[str]:
+    summary = [draft.decision.value]
+    if draft.item:
+        summary.append(f"item {draft.item}")
+    if draft.ticket_id:
+        summary.append(f"ticket {_one_line(draft.ticket_id)}")
+    return [f"Decision: {' · '.join(summary)}", "", *_quoted(draft.response)]
+
+
+def _reflection(step: Step, reflection: Reflection) -> list[str]:
+    label = _draft_label(reflection)
+    lines = ["", f"## Step {step.index}: {label} → Reflection: {reflection.verdict}", ""]
+    if reflection.seeded:
+        lines += [
+            "_SEEDED: the harness replaced the model's draft with this known-bad one "
+            "(--seed-flawed-draft) to show reflection catching it; not a model error._",
+            "",
+        ]
+    lines += [f"**{label}:**", "", *_draft(reflection.draft), ""]
+    lines.append(f"**Checks:** {' · '.join(CHECKS)}")
+    if step.thought.strip():
+        lines += ["", f"**Critic thought:** {_one_line(step.thought)}"]
+    lines += ["", f"**Reflection: {reflection.verdict}**"]
+    if reflection.issues:
+        lines += [""]
+        lines += [
+            f"- {issue.code.value} ({issue.source.value}): {_one_line(issue.detail)}"
+            for issue in reflection.issues
+        ]
+    if reflection.critic_error:
+        lines += ["", f"Critic failed: {_one_line(reflection.critic_error)}"]
+    lines += [
+        "",
+        f"_Critic tokens {step.input_tokens} in / {step.output_tokens} out · "
+        f"LLM {step.llm_latency_ms:.0f} ms_",
+    ]
+    return lines
+
+
+CHECKS = (
+    "R-20 decision vs verdict",
+    "R-21 facts vs tool results",
+    "R-22 no unbacked promises",
+    "R-23 LLM critic",
+)
+"""What reflection checks on every draft, as listed in the trace."""
+
+
 def to_markdown(trace: Trace) -> str:
     lines = [
         f"# ReAct trace: {trace.employee_id}",
@@ -175,7 +242,16 @@ def to_markdown(trace: Trace) -> str:
         f"Model: {trace.model} · started {trace.started_at.isoformat()} · "
         f"step cap {trace.max_steps}",
     ]
+    if trace.seeded:
+        lines += [
+            "",
+            "**SEEDED run:** the first draft is a known-bad one injected by "
+            "--seed-flawed-draft, not written by the model (PLAN.md §8).",
+        ]
     for step in trace.steps:
+        if step.reflection is not None:
+            lines += _reflection(step, step.reflection)
+            continue
         title = f"## Step {step.index}"
         if step.actor == "harness":
             title += " (harness, not the model)"
@@ -195,7 +271,9 @@ def to_markdown(trace: Trace) -> str:
             f"stop_reason {step.stop_reason or '-'}_",
         ]
     model_calls = sum(1 for step in trace.steps if step.actor == "model")
+    critic_calls = sum(1 for step in trace.steps if step.actor == "reflection")
     noun = "step" if trace.tool_steps == 1 else "steps"
+    critic_noun = "call" if critic_calls == 1 else "calls"
     lines += ["", "## Outcome", "", f"Ended by: {trace.outcome.ended_by.value}"]
     if trace.outcome.final_text is not None:
         lines += ["Final answer:", "", *_quoted(trace.outcome.final_text), ""]
@@ -208,7 +286,8 @@ def to_markdown(trace: Trace) -> str:
     if trace.outcome.detail:
         lines.append(f"Detail: {_one_line(trace.outcome.detail)}")
     lines.append(
-        f"Totals: {model_calls} model calls, {trace.tool_steps} tool {noun}, "
+        f"Totals: {model_calls} model calls, {critic_calls} critic {critic_noun}, "
+        f"{trace.tool_steps} tool {noun}, "
         f"{trace.total_input_tokens} in / {trace.total_output_tokens} out"
     )
     return "\n".join(lines) + "\n"

@@ -10,10 +10,12 @@ every run ends with an outcome:
 - After MAX_STEPS tool-using turns (R-19), or if the model refuses, is cut off or
   cannot be reached, the loop escalates the request itself with
   flag_for_human_review and the GUARDRAIL_OVERRIDE code.
-
-The decision schema and its guardrails are EQP-11; reflection is EQP-12.
+- Every draft decision is reflected on (agent/reflection.py, R-20 to R-23). A draft
+  with issues goes back to the model once; the final draft must then pass both
+  the guardrails (R-16 to R-18) and reflection, or the request is escalated.
 
     make ask ARGS='--employee-id E1001 --request "I need a second monitor"'
+    make ask ARGS='--employee-id E1002 --request "I need a second monitor" --seed-flawed-draft'
 """
 
 import argparse
@@ -28,12 +30,13 @@ from typing import Any
 import anyio
 from anthropic.types import MessageParam, ToolResultBlockParam
 
-from agent import guardrails
+from agent import guardrails, reflection
 from agent.config import AgentSettings, ConfigError, load_settings
 from agent.decision import Decision, DecisionError, DecisionKind, Draft, parse_draft
 from agent.guardrails import ESCALATION_TOOL
 from agent.llm import FoundryLLMClient, LLMClient, LLMError, LLMResponse
 from agent.mcp_client import EquipDeskMcp, McpUnavailable
+from agent.reflection import SEEDED_DRAFT, Critic, LLMCritic, revision_request
 from agent.trace import Action, EndReason, Outcome, Step, Trace, to_markdown, write_trace
 from server.codes import EscalationCode
 from server.services.review import MAX_TEXT_LENGTH, REASON_CODE, clean_text
@@ -338,11 +341,16 @@ async def run(
     employee_id: str,
     request: str,
     model: str,
+    critic: Critic,
+    seed_flawed_draft: bool = False,
     max_steps: int = MAX_STEPS,
 ) -> Trace:
     """Handle one request with the ReAct loop. Raises McpUnavailable only if the
     tool list cannot be fetched at the start; after that every problem ends in a
-    forced escalation, and a failed escalation is recorded in the outcome."""
+    forced escalation, and a failed escalation is recorded in the outcome.
+
+    `seed_flawed_draft` replaces the model's first draft with SEEDED_DRAFT (PLAN.md
+    §8), so reflection's catch can be shown; the trace labels it SEEDED."""
     started_at = datetime.now(UTC)
     tools = await mcp.list_tools()
     messages: list[MessageParam] = [{"role": "user", "content": user_message(employee_id, request)}]
@@ -396,6 +404,7 @@ async def run(
         return [action for step in steps if step.actor == "model" for action in step.actions]
 
     retried = False
+    drafts = 0
 
     while True:
         try:
@@ -432,7 +441,35 @@ async def run(
                     messages.append(response.assistant_message())
                     messages.append({"role": "user", "content": RETRY.format(error=exc)})
                     continue
+                drafts += 1
+                seeded = seed_flawed_draft and drafts == 1
+                if seeded:
+                    draft = SEEDED_DRAFT
                 actions = model_actions()
+                step = await reflection.reflect(
+                    draft,
+                    actions,
+                    critic,
+                    index=len(steps) + 1,
+                    number=drafts,
+                    seeded=seeded,
+                    employee_id=employee_id,
+                    request=request,
+                )
+                steps.append(step)
+                checked = step.reflection
+                assert checked is not None
+                if checked.critic_error is not None:
+                    return await escalate(
+                        EndReason.REFLECTION,
+                        f"Reflection could not check draft {drafts}: {checked.critic_error}",
+                        checked.critic_error,
+                        final_text=response.text,
+                    )
+                if checked.verdict == "revise" and drafts == 1:
+                    messages.append(response.assistant_message())
+                    messages.append({"role": "user", "content": revision_request(checked)})
+                    continue
                 violation = guardrails.check(
                     draft, actions, employee_id=employee_id, request=request
                 )
@@ -441,6 +478,14 @@ async def run(
                         EndReason.GUARDRAIL,
                         f"Guardrail: {violation}",
                         violation,
+                        final_text=response.text,
+                    )
+                if checked.verdict == "revise":
+                    found = ", ".join(dict.fromkeys(i.code.value for i in checked.issues))
+                    return await escalate(
+                        EndReason.REFLECTION,
+                        f"Reflection still found issues after one revision: {found}.",
+                        found,
                         final_text=response.text,
                     )
                 accepted = _accepted(draft, actions, employee_id, request)
@@ -472,9 +517,19 @@ async def run(
         messages.append({"role": "user", "content": [_tool_result(a) for a in actions]})
 
 
-async def _run(llm: LLMClient, url: str, employee_id: str, request: str, model: str) -> Trace:
+async def _run(
+    llm: LLMClient, url: str, employee_id: str, request: str, model: str, seed: bool
+) -> Trace:
     async with EquipDeskMcp(url) as mcp:
-        return await run(llm, mcp, employee_id=employee_id, request=request, model=model)
+        return await run(
+            llm,
+            mcp,
+            employee_id=employee_id,
+            request=request,
+            model=model,
+            critic=LLMCritic(llm),
+            seed_flawed_draft=seed,
+        )
 
 
 def main(
@@ -492,6 +547,12 @@ def main(
     parser.add_argument("--mcp-url", help="MCP endpoint (default: MCP_URL or localhost)")
     parser.add_argument("--trace-dir", type=Path, help="also write <name>.md and .json here")
     parser.add_argument("--name", help="trace file name (default: the employee ID)")
+    parser.add_argument(
+        "--seed-flawed-draft",
+        action="store_true",
+        help="replace the first draft with a known-bad one (labelled SEEDED) to show "
+        "reflection catching it",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -508,6 +569,7 @@ def main(
             args.employee_id,
             args.request,
             settings.foundry_model_deployment,
+            args.seed_flawed_draft,
         )
     except McpUnavailable as exc:
         print(exc, file=sys.stderr)

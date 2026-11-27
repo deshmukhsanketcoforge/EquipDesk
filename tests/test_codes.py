@@ -4,7 +4,14 @@ These tests pin the exact values. Adding or removing a code must be a
 deliberate change: update the enum, docs/requirements.md and this test.
 """
 
-from server.codes import REASON_VERDICT, ErrorCode, EscalationCode, ReasonCode, Verdict
+from server.codes import (
+    REASON_VERDICT,
+    ErrorCode,
+    EscalationCode,
+    IssueCode,
+    ReasonCode,
+    Verdict,
+)
 
 
 def test_verdict_values() -> None:
@@ -41,6 +48,20 @@ def test_escalation_code_values() -> None:
 
 def test_error_code_values() -> None:
     assert {c.value for c in ErrorCode} == {"INVALID_INPUT", "NOT_FOUND", "INTERNAL"}
+
+
+def test_issue_code_values() -> None:
+    # Why reflection sent a draft back (R-20 to R-23, EQP-12).
+    assert {c.value for c in IssueCode} == {
+        "DECISION_MISMATCH",
+        "UNSUPPORTED_DATE",
+        "UNSUPPORTED_AMOUNT",
+        "UNSUPPORTED_NUMBER",
+        "UNSUPPORTED_TICKET",
+        "UNSUPPORTED_CLAIM",
+        "UNBACKED_COMMITMENT",
+        "MISSED_ESCALATION",
+    }
 
 
 def test_reason_codes_are_grouped_by_verdict() -> None:

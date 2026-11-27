@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from agent.decision import Decision, DecisionKind
+from agent.decision import Decision, DecisionKind, Draft, Issue, IssueSource, Reflection
 from agent.trace import Action, EndReason, Outcome, Step, Trace, to_json, to_markdown, write_trace
-from server.codes import EscalationCode
+from server.codes import EscalationCode, IssueCode
 
 STARTED = datetime(2026, 11, 27, 10, 0, tzinfo=UTC)
 
@@ -152,7 +152,7 @@ def test_markdown_shows_tokens_latency_and_the_answer() -> None:
     assert "tool 12 ms" in markdown
     assert "**Answer:**\n\n> APPROVE: your second monitor is within policy." in markdown
     assert "Ended by: answer" in markdown
-    assert "Totals: 2 model calls, 1 tool step, 2600 in / 125 out" in markdown
+    assert "Totals: 2 model calls, 0 critic calls, 1 tool step, 2600 in / 125 out" in markdown
 
 
 def test_markdown_header_names_the_request() -> None:
@@ -367,3 +367,39 @@ def test_a_decision_round_trips_through_json() -> None:
 
     assert Trace.model_validate_json(to_json(trace)) == trace
     assert json.loads(to_json(trace))["outcome"]["decision"]["escalation_code"] == "MULTIPLE_ITEMS"
+
+
+def test_markdown_shows_a_reflection_with_its_draft_critic_thought_and_issues() -> None:
+    draft = Draft(
+        decision=DecisionKind.ESCALATE,
+        response="Sent to a reviewer.",
+        reasons=["x"],
+        ticket_id="TKT-000004",
+    )
+    issue = Issue(
+        code=IssueCode.UNBACKED_COMMITMENT,
+        source=IssueSource.DETERMINISTIC,
+        detail="'by Friday' is a promise.",
+    )
+    step = Step(
+        index=4,
+        actor="reflection",
+        thought="Check the ticket.",
+        actions=[],
+        answer=None,
+        stop_reason=None,
+        input_tokens=500,
+        output_tokens=40,
+        llm_latency_ms=700.0,
+        reflection=Reflection(draft_number=2, draft=draft, issues=[issue]),
+    )
+    trace = _trace().model_copy(update={"steps": [*_trace().steps, step]})
+
+    markdown = to_markdown(trace)
+
+    assert "## Step 4: Draft 2 → Reflection: revise" in markdown
+    assert "Decision: ESCALATE · ticket TKT-000004" in markdown
+    assert "**Critic thought:** Check the ticket." in markdown
+    assert "- UNBACKED_COMMITMENT (deterministic): 'by Friday' is a promise." in markdown
+    assert "_Critic tokens 500 in / 40 out · LLM 700 ms_" in markdown
+    assert json.loads(to_json(trace))["steps"][-1]["reflection"]["verdict"] == "revise"

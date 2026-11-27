@@ -11,7 +11,11 @@ from typing import Any
 
 from anthropic.types import MessageParam, ToolParam
 
+from agent.decision import Draft, Issue, IssueSource
 from agent.llm import LLMResponse
+from agent.reflection import CriticError, CriticReport
+from agent.trace import Action
+from server.codes import IssueCode
 
 _ids = itertools.count(1)
 
@@ -87,6 +91,50 @@ def decision(
         "ticket_id": ticket_id,
     }
     return text(json.dumps(body))
+
+
+def critique(*issues: tuple[str, str]) -> LLMResponse:
+    """The LLM critic's reply: a list of (code, detail) issues, empty for a pass."""
+    body = {"issues": [{"code": code, "detail": detail} for code, detail in issues]}
+    return text(json.dumps(body))
+
+
+class FakeCritic:
+    """A Critic that reports the same issues (none by default) on every draft, or
+    fails with CriticError; it counts its calls and keeps the drafts it saw."""
+
+    def __init__(
+        self,
+        issues: Iterable[tuple[str, str]] = (),
+        *,
+        error: str | None = None,
+        thought: str = "",
+    ):
+        self._issues = [
+            Issue(code=IssueCode(code), source=IssueSource.CRITIC, detail=detail)
+            for code, detail in issues
+        ]
+        self._error = error
+        self._thought = thought
+        self.drafts: list[Draft] = []
+
+    @property
+    def calls(self) -> int:
+        return len(self.drafts)
+
+    async def review(
+        self, *, employee_id: str, request: str, draft: Draft, actions: list[Action]
+    ) -> CriticReport:
+        self.drafts.append(draft)
+        if self._error is not None:
+            raise CriticError(self._error)
+        return CriticReport(
+            issues=self._issues,
+            thought=self._thought,
+            input_tokens=0,
+            output_tokens=0,
+            latency_ms=0.0,
+        )
 
 
 @dataclass(frozen=True)
