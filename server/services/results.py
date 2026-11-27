@@ -13,6 +13,15 @@ from server.repositories.base import Repository, RepositoryProvider
 
 logger = logging.getLogger(__name__)
 
+MAX_ECHO = 32
+"""Longest caller input quoted back in an error (the text reaches the agent's LLM)."""
+
+
+def echo(value: object) -> str:
+    """repr() of caller input for an error message, truncated to MAX_ECHO."""
+    text = repr(value)
+    return text if len(text) <= MAX_ECHO else text[: MAX_ECHO - 3] + "..."
+
 
 class ToolError(BaseModel):
     code: ErrorCode

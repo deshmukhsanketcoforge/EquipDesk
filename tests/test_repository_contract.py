@@ -14,9 +14,10 @@ from sqlalchemy.orm import Session
 
 from server.codes import EscalationCode
 from server.dates import add_months
+from server.db.models import CatalogAliasRow, CatalogItemRow, RolePolicyRow
 from server.db.seed import seed
 from server.db.seed_data import build_seed_data
-from server.records import EquipmentItem, NewTicket
+from server.records import CatalogItem, EquipmentItem, NewTicket, RolePolicy
 from server.repositories.base import Repository
 from server.repositories.memory import InMemoryRepository
 from server.repositories.sql import SqlRepository
@@ -180,3 +181,53 @@ def test_naive_created_at_is_rejected(repo: Repository) -> None:
     naive = replace(_new_ticket(), created_at=datetime(2026, 11, 26, 9, 30))
     with pytest.raises(ValueError, match="time zone"):
         repo.get_or_create_open_ticket(naive)
+
+
+# --- ordering ----------------------------------------------------------------
+
+# Names whose code-point order differs from a typical locale's (which ignores
+# punctuation): code points give a-z, a0, a_c, ab; en_US gives a0, ab, a_c, a-z.
+ODD_NAMES = ["ab", "a-z", "a_c", "a0"]
+
+
+@pytest.fixture(params=["memory", "postgres"])
+def odd_names_repo(request: pytest.FixtureRequest) -> Repository:
+    catalog = [CatalogItem(name, 10) for name in ODD_NAMES] + [
+        CatalogItem("widget", 10, tuple(f"w{name}" for name in ODD_NAMES))
+    ]
+    policies = [RolePolicy("tester", item.item, True, 12) for item in catalog]
+    if request.param == "memory":
+        return InMemoryRepository([], policies, catalog)
+    session: Session = request.getfixturevalue("db_session")
+    for item in catalog:
+        session.add(CatalogItemRow(item=item.item, unit_cost_usd=item.unit_cost_usd))
+    session.flush()
+    for item in catalog:
+        session.add_all(CatalogAliasRow(alias=alias, item=item.item) for alias in item.aliases)
+    session.add_all(
+        RolePolicyRow(
+            role=p.role,
+            item=p.item,
+            entitled=p.entitled,
+            refresh_months=p.refresh_months,
+            min_tenure_months=p.min_tenure_months,
+        )
+        for p in policies
+    )
+    session.flush()
+    return SqlRepository(session)
+
+
+def test_policies_are_in_code_point_order_whatever_the_collation(
+    odd_names_repo: Repository,
+) -> None:
+    items = [p.item for p in odd_names_repo.get_role_policies("tester")]
+    assert items == sorted([*ODD_NAMES, "widget"])
+
+
+def test_aliases_are_in_code_point_order_whatever_the_collation(
+    odd_names_repo: Repository,
+) -> None:
+    widget = odd_names_repo.find_catalog_item("widget")
+    assert widget is not None
+    assert list(widget.aliases) == sorted(f"w{name}" for name in ODD_NAMES)

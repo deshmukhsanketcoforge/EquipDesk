@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import json
 import socket
 import threading
 import time
 from collections.abc import Iterator
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from datetime import date
+from typing import Any
 
 import pytest
 import uvicorn
+from fastapi.testclient import TestClient
+from mcp.types import CallToolResult, TextContent
 from sqlalchemy import Engine, create_engine, make_url, text
 from sqlalchemy.orm import Session
 from starlette.types import ASGIApp
@@ -52,6 +56,21 @@ def provide(repo: Repository) -> RepositoryProvider:
         return nullcontext(repo)
 
     return scope
+
+
+@pytest.fixture
+def client(memory_repo: InMemoryRepository) -> Iterator[TestClient]:
+    """The app over the in-memory seed data and a fixed clock, for REST tests."""
+    app = create_app(repositories=provide(memory_repo), clock=FixedClock(TODAY))
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+def tool_json(result: CallToolResult) -> Any:
+    """The JSON an MCP tool returned in its single text block."""
+    texts = [block.text for block in result.content if isinstance(block, TextContent)]
+    assert len(texts) == 1, result
+    return json.loads(texts[0])
 
 
 @contextmanager

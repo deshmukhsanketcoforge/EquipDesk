@@ -95,3 +95,15 @@ def test_app_with_injected_repositories_owns_no_engine(db_session: Session) -> N
     app = create_app(repositories=provide(SqlRepository(db_session)), clock=FixedClock(TODAY))
 
     assert getattr(app.state, "engine", None) is None
+
+
+def test_rest_serves_seeded_postgres_policies(db_session: Session) -> None:
+    seed(db_session, TODAY)
+    app = create_app(repositories=provide(SqlRepository(db_session)), clock=FixedClock(TODAY))
+
+    with TestClient(app) as client:
+        body = client.get("/v1/policies/Contractor").json()
+
+    assert body["role"] == "contractor"
+    entitled = {p["item"]: p["refresh_months"] for p in body["policies"] if p["entitled"]}
+    assert entitled == {"headset": 24, "keyboard": 24, "mouse": 24}

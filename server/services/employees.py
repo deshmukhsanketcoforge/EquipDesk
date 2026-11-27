@@ -10,13 +10,11 @@ from server.clock import Clock
 from server.codes import ErrorCode, ReasonCode
 from server.dates import whole_months_between
 from server.repositories.base import Repository
-from server.services.results import ErrorResult, error_result
+from server.services.results import ErrorResult, echo, error_result
 
 logger = logging.getLogger(__name__)
 
 EMPLOYEE_ID = re.compile(r"E[0-9]{4}")  # ASCII only: \d would accept any Unicode digit
-MAX_ECHO = 32
-"""Longest caller input quoted back in an error (the text reaches the agent's LLM)."""
 
 
 class EquipmentOnFile(BaseModel):
@@ -37,11 +35,6 @@ class EmployeeInfo(BaseModel):
     """Oldest first."""
 
 
-def _echo(value: object) -> str:
-    text = repr(value)
-    return text if len(text) <= MAX_ECHO else text[: MAX_ECHO - 3] + "..."
-
-
 def parse_employee_id(employee_id: object) -> str | None:
     """The canonical ID ("E" + 4 digits), ignoring surrounding whitespace and case."""
     if not isinstance(employee_id, str):
@@ -58,7 +51,7 @@ def get_employee_info(
     if canonical is None:
         return error_result(
             ErrorCode.INVALID_INPUT,
-            f"Malformed employee ID {_echo(employee_id)}: expected 'E' followed by 4 digits.",
+            f"Malformed employee ID {echo(employee_id)}: expected 'E' followed by 4 digits.",
         )
     try:
         employee = repo.get_employee(canonical)

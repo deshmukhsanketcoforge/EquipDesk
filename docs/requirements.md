@@ -69,7 +69,7 @@ Definitions used by the rules:
 | ID | Rule | Outcome | Tests |
 |---|---|---|---|
 | R-01 | The employee ID must exist | `NEEDS_REVIEW` / `EMPLOYEE_NOT_FOUND` | `tests/test_employee_service.py` (`get_employee_info`); Planned: EQP-7 |
-| R-02 | The employee's role must have a policy | `NEEDS_REVIEW` / `UNKNOWN_ROLE` | Planned: EQP-6 (`get_policy_limits`), EQP-7 |
+| R-02 | The employee's role must have a policy | `NEEDS_REVIEW` / `UNKNOWN_ROLE` | `tests/test_policy_service.py` (`get_policy_limits`); Planned: EQP-7 |
 | R-03 | The requested item must match a catalog item or alias | `NEEDS_REVIEW` / `UNKNOWN_ITEM` | Planned: EQP-7 |
 | R-04 | Records must be consistent: no item on file dated before the hire date or after today, and no hire date after today | `NEEDS_REVIEW` / `CONFLICTING_RECORDS` | Planned: EQP-7 |
 | R-05 | The role must be entitled to the item | `INELIGIBLE` / `ROLE_NOT_ENTITLED` | Planned: EQP-7 |
@@ -119,7 +119,7 @@ Every draft response (approve, deny or escalate) is checked before it is final. 
 
 | ID | Rule | Outcome | Tests |
 |---|---|---|---|
-| R-24 | Tools never raise. Errors are returned as data: an `ErrorCode` (`INVALID_INPUT`, `NOT_FOUND`, `INTERNAL`), the domain reason code when there is one, and a message | Error result | `tests/test_employee_service.py`, `tests/test_employee_adapters.py` (REST and MCP); Planned: EQP-6 to EQP-8 |
+| R-24 | Tools never raise. Errors are returned as data: an `ErrorCode` (`INVALID_INPUT`, `NOT_FOUND`, `INTERNAL`), the domain reason code when there is one, and a message | Error result | `tests/test_employee_service.py`, `tests/test_employee_adapters.py`, `tests/test_policy_service.py`, `tests/test_policy_adapters.py` (REST and MCP); Planned: EQP-7, EQP-8 |
 | R-25 | `flag_for_human_review` needs a non-empty reason written as `"<CODE>: explanation"`. Repeating the same employee and request returns the existing open ticket, whatever the reason wording | Ticket with status `PENDING_REVIEW`, stored with the parsed escalation code, or `OTHER` if the code is not recognized | Planned: EQP-8 |
 | R-26 | Codes are closed sets: tools and the agent only use the values in [Codes](#codes) | Fixed sets | `tests/test_codes.py`, `tests/test_requirements_doc.py` |
 

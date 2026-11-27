@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, collate, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -33,6 +33,10 @@ from server.repositories.base import (
     to_utc,
 )
 
+CODE_POINT = "C"
+"""Collation for ORDER BY on names: code-point order, like Python's sorted() in the
+in-memory repository, whatever the database's default locale."""
+
 
 class SqlRepository:
     def __init__(self, session: Session) -> None:
@@ -49,7 +53,7 @@ class SqlRepository:
         equipment = self._session.execute(
             select(EquipmentAssetRow.item, EquipmentAssetRow.acquired_on)
             .where(EquipmentAssetRow.employee_id == employee_id)
-            .order_by(EquipmentAssetRow.acquired_on, EquipmentAssetRow.item)
+            .order_by(EquipmentAssetRow.acquired_on, collate(EquipmentAssetRow.item, CODE_POINT))
         )
         return Employee(
             employee_id=row.employee_id,
@@ -61,7 +65,9 @@ class SqlRepository:
 
     def get_role_policies(self, role: str) -> list[RolePolicy]:
         rows = self._session.scalars(
-            select(RolePolicyRow).where(RolePolicyRow.role == role).order_by(RolePolicyRow.item)
+            select(RolePolicyRow)
+            .where(RolePolicyRow.role == role)
+            .order_by(collate(RolePolicyRow.item, CODE_POINT))
         )
         return [
             RolePolicy(
@@ -87,7 +93,7 @@ class SqlRepository:
         aliases = self._session.scalars(
             select(CatalogAliasRow.alias)
             .where(CatalogAliasRow.item == row.item)
-            .order_by(CatalogAliasRow.alias)
+            .order_by(collate(CatalogAliasRow.alias, CODE_POINT))
         )
         return CatalogItem(item=row.item, unit_cost_usd=row.unit_cost_usd, aliases=tuple(aliases))
 

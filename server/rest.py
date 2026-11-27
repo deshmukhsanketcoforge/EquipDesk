@@ -5,12 +5,14 @@ from typing import Any
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from server.clock import Clock
 from server.codes import ErrorCode
 from server.repositories.base import RepositoryProvider
-from server.services import employees
+from server.services import employees, policies
 from server.services.employees import EmployeeInfo
+from server.services.policies import PolicyLimits
 from server.services.results import ErrorResult, call_with_repository
 
 ERROR_STATUS: dict[ErrorCode, int] = {
@@ -26,7 +28,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
-def _respond(result: EmployeeInfo | ErrorResult) -> EmployeeInfo | JSONResponse:
+def _respond[T: BaseModel](result: T | ErrorResult) -> T | JSONResponse:
     if isinstance(result, ErrorResult):
         return JSONResponse(
             # A test keeps this map complete; 500 is only a safety net.
@@ -40,7 +42,8 @@ def build_router(repositories: RepositoryProvider, clock: Clock) -> APIRouter:
     router = APIRouter(prefix="/v1", tags=["equipment requests"])
 
     @router.get(
-        "/employees/{employee_id}",
+        # :path so "" and "a/b" reach the service, as over MCP (same error data).
+        "/employees/{employee_id:path}",
         operation_id="get_employee_info",
         response_model=EmployeeInfo,
         responses=ERROR_RESPONSES,
@@ -52,6 +55,21 @@ def build_router(repositories: RepositoryProvider, clock: Clock) -> APIRouter:
             call_with_repository(
                 repositories,
                 lambda repo: employees.get_employee_info(employee_id, repo=repo, clock=clock),
+            )
+        )
+
+    @router.get(
+        "/policies/{role:path}",
+        operation_id="get_policy_limits",
+        response_model=PolicyLimits,
+        responses=ERROR_RESPONSES,
+        summary="What a role is entitled to and how often",
+    )
+    def get_policy_limits(role: str) -> PolicyLimits | JSONResponse:
+        """Same operation as the `get_policy_limits` MCP tool."""
+        return _respond(
+            call_with_repository(
+                repositories, lambda repo: policies.get_policy_limits(role, repo=repo)
             )
         )
 
