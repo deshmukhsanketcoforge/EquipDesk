@@ -12,7 +12,7 @@ Work is tracked as tickets EQP-1 to EQP-14 (Linear project EquipDesk).
 
 | Done | Still to come |
 |---|---|
-| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool | Database and seed data (EQP-3), the four equipment tools (EQP-4 to EQP-8), the agent (EQP-9 to EQP-12), evals and demo (EQP-13) |
+| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py` | Database and seed data (EQP-3), the four equipment tools (EQP-4 to EQP-8), the agent (EQP-9 to EQP-12), evals and demo (EQP-13) |
 
 `make seed` and `make demo` exist already, but they exit with a "not implemented yet" message until their tickets land.
 
@@ -97,6 +97,9 @@ server/            FastAPI backend
   main.py          app factory: /health, Swagger, MCP mounted at /mcp
   mcp_tools.py     MCP tool definitions (currently: ping)
   config.py        settings from environment variables
+  codes.py         fixed code sets: verdicts, reason, escalation and error codes
+docs/
+  requirements.md  requirements, policy rules (R-01 to R-26), codes, worked examples
 agent/             ReAct agent (placeholder until EQP-9)
 tests/             pytest suite (runs in Docker)
 scripts/check.sh   the full lint + type + test check
