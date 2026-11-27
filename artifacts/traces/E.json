@@ -1,0 +1,169 @@
+{
+  "employee_id": "E1005",
+  "request": "I need a new laptop",
+  "model": "claude-opus-5-5-fast",
+  "started_at": "2026-11-27T20:35:55.354702Z",
+  "max_steps": 8,
+  "tool_steps": 2,
+  "steps": [
+    {
+      "index": 1,
+      "actor": "model",
+      "thought": "Checking employee record and eligibility for a laptop.",
+      "actions": [
+        {
+          "tool_use_id": "toolu_01TwdN9VpJfrDQ85Z5qwNyY6",
+          "tool": "get_employee_info",
+          "arguments": {
+            "employee_id": "E1005"
+          },
+          "observation": {
+            "employee_id": "E1005",
+            "name": "Elena Petrova",
+            "role": "engineer",
+            "hire_date": "2024-11-27",
+            "tenure_months": 24,
+            "equipment": [
+              {
+                "item": "laptop",
+                "acquired_on": "2023-11-27"
+              }
+            ]
+          },
+          "is_error": false,
+          "executed": true,
+          "latency_ms": 13.651665998622775
+        },
+        {
+          "tool_use_id": "toolu_013fvXe5vedqLfEAiNiYbjgW",
+          "tool": "check_request_eligibility",
+          "arguments": {
+            "employee_id": "E1005",
+            "item": "laptop"
+          },
+          "observation": {
+            "employee_id": "E1005",
+            "role": "engineer",
+            "item": "laptop",
+            "verdict": "NEEDS_REVIEW",
+            "reason_code": "CONFLICTING_RECORDS",
+            "explanation": "laptop on file is dated 2023-11-27, before the hire date 2024-11-27.",
+            "tenure_months": 24,
+            "min_tenure_months": null,
+            "refresh_months": null,
+            "last_acquired_on": null,
+            "next_eligible_date": null,
+            "unit_cost_usd": 1800
+          },
+          "is_error": false,
+          "executed": true,
+          "latency_ms": 14.87595900107408
+        }
+      ],
+      "answer": null,
+      "stop_reason": "tool_use",
+      "input_tokens": 3579,
+      "output_tokens": 150,
+      "llm_latency_ms": 870.6574590032687,
+      "reflection": null
+    },
+    {
+      "index": 2,
+      "actor": "model",
+      "thought": "Eligibility returned NEEDS_REVIEW (CONFLICTING_RECORDS); escalating to a human reviewer.",
+      "actions": [
+        {
+          "tool_use_id": "toolu_01KXqi8nG75E9xJcMdRHMmb9",
+          "tool": "flag_for_human_review",
+          "arguments": {
+            "employee_id": "E1005",
+            "request": "I need a new laptop",
+            "reason": "TOOL_NEEDS_REVIEW: check_request_eligibility returned CONFLICTING_RECORDS - laptop on file dated 2023-11-27, before hire date 2024-11-27."
+          },
+          "observation": {
+            "ticket_id": "TKT-000008",
+            "status": "PENDING_REVIEW",
+            "employee_id": "E1005",
+            "escalation_code": "TOOL_NEEDS_REVIEW",
+            "created_at": "2026-11-27T20:35:57.103462Z"
+          },
+          "is_error": false,
+          "executed": true,
+          "latency_ms": 15.139250004722271
+        }
+      ],
+      "answer": null,
+      "stop_reason": "tool_use",
+      "input_tokens": 4051,
+      "output_tokens": 218,
+      "llm_latency_ms": 841.8547920009587,
+      "reflection": null
+    },
+    {
+      "index": 3,
+      "actor": "model",
+      "thought": "",
+      "actions": [],
+      "answer": "{\n  \"decision\": \"ESCALATE\",\n  \"item\": \"laptop\",\n  \"response\": \"Your laptop request needs a person to review it. Our records conflict: the laptop on file is dated 2023-11-27, which is before your hire date of 2024-11-27. Ticket TKT-000008 has been created, and its status is pending review.\",\n  \"reasons\": [\n    \"check_request_eligibility returned NEEDS_REVIEW with reason_code CONFLICTING_RECORDS\",\n    \"The laptop on file is dated 2023-11-27, before the hire date of 2024-11-27\",\n    \"Escalated with code TOOL_NEEDS_REVIEW as ticket TKT-000008\"\n  ],\n  \"ticket_id\": \"TKT-000008\"\n}",
+      "stop_reason": "end_turn",
+      "input_tokens": 4366,
+      "output_tokens": 255,
+      "llm_latency_ms": 1299.4195009960094,
+      "reflection": null
+    },
+    {
+      "index": 4,
+      "actor": "reflection",
+      "thought": "",
+      "actions": [],
+      "answer": null,
+      "stop_reason": null,
+      "input_tokens": 1586,
+      "output_tokens": 9,
+      "llm_latency_ms": 492.54329199902713,
+      "reflection": {
+        "draft_number": 1,
+        "seeded": false,
+        "draft": {
+          "decision": "ESCALATE",
+          "item": "laptop",
+          "response": "Your laptop request needs a person to review it. Our records conflict: the laptop on file is dated 2023-11-27, which is before your hire date of 2024-11-27. Ticket TKT-000008 has been created, and its status is pending review.",
+          "reasons": [
+            "check_request_eligibility returned NEEDS_REVIEW with reason_code CONFLICTING_RECORDS",
+            "The laptop on file is dated 2023-11-27, before the hire date of 2024-11-27",
+            "Escalated with code TOOL_NEEDS_REVIEW as ticket TKT-000008"
+          ],
+          "ticket_id": "TKT-000008"
+        },
+        "issues": [],
+        "critic_error": null,
+        "verdict": "pass"
+      }
+    }
+  ],
+  "outcome": {
+    "ended_by": "answer",
+    "final_text": "{\n  \"decision\": \"ESCALATE\",\n  \"item\": \"laptop\",\n  \"response\": \"Your laptop request needs a person to review it. Our records conflict: the laptop on file is dated 2023-11-27, which is before your hire date of 2024-11-27. Ticket TKT-000008 has been created, and its status is pending review.\",\n  \"reasons\": [\n    \"check_request_eligibility returned NEEDS_REVIEW with reason_code CONFLICTING_RECORDS\",\n    \"The laptop on file is dated 2023-11-27, before the hire date of 2024-11-27\",\n    \"Escalated with code TOOL_NEEDS_REVIEW as ticket TKT-000008\"\n  ],\n  \"ticket_id\": \"TKT-000008\"\n}",
+    "ticket_id": null,
+    "detail": null,
+    "escalation_error": null,
+    "decision": {
+      "decision": "ESCALATE",
+      "item": null,
+      "response": "Your laptop request needs a person to review it. Our records conflict: the laptop on file is dated 2023-11-27, which is before your hire date of 2024-11-27. Ticket TKT-000008 has been created, and its status is pending review.",
+      "reasons": [
+        "check_request_eligibility returned NEEDS_REVIEW with reason_code CONFLICTING_RECORDS",
+        "The laptop on file is dated 2023-11-27, before the hire date of 2024-11-27",
+        "Escalated with code TOOL_NEEDS_REVIEW as ticket TKT-000008"
+      ],
+      "ticket_id": "TKT-000008",
+      "escalation_code": "TOOL_NEEDS_REVIEW",
+      "forced": false,
+      "ticket_code": "TOOL_NEEDS_REVIEW",
+      "ticket_reused": false
+    }
+  },
+  "seeded": false,
+  "total_input_tokens": 13582,
+  "total_output_tokens": 632
+}
