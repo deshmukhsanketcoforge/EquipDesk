@@ -119,7 +119,7 @@ Every draft response (approve, deny or escalate) is checked before it is final. 
 
 | ID | Rule | Outcome | Tests |
 |---|---|---|---|
-| R-24 | Tools never raise. Errors are returned as data: an `ErrorCode` (`INVALID_INPUT`, `NOT_FOUND`, `INTERNAL`), the domain reason code when there is one, and a message | Error result | `tests/test_employee_service.py`; Planned: EQP-5 to EQP-8 |
+| R-24 | Tools never raise. Errors are returned as data: an `ErrorCode` (`INVALID_INPUT`, `NOT_FOUND`, `INTERNAL`), the domain reason code when there is one, and a message | Error result | `tests/test_employee_service.py`, `tests/test_employee_adapters.py` (REST and MCP); Planned: EQP-6 to EQP-8 |
 | R-25 | `flag_for_human_review` needs a non-empty reason written as `"<CODE>: explanation"`. Repeating the same employee and request returns the existing open ticket, whatever the reason wording | Ticket with status `PENDING_REVIEW`, stored with the parsed escalation code, or `OTHER` if the code is not recognized | Planned: EQP-8 |
 | R-26 | Codes are closed sets: tools and the agent only use the values in [Codes](#codes) | Fixed sets | `tests/test_codes.py`, `tests/test_requirements_doc.py` |
 

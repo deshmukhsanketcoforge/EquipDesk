@@ -3,6 +3,8 @@
 tests/test_repository_contract.py runs the same tests against both.
 """
 
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from datetime import UTC, datetime
 from typing import Protocol
 
@@ -45,3 +47,7 @@ class Repository(Protocol):
         time zone (ValueError otherwise) and is returned in UTC.
         """
         ...
+
+
+type RepositoryProvider = Callable[[], AbstractContextManager[Repository]]
+"""Opens a repository for one REST request or MCP tool call and cleans it up after."""

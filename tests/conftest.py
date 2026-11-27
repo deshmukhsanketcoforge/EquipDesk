@@ -6,17 +6,26 @@ import socket
 import threading
 import time
 from collections.abc import Iterator
+from contextlib import AbstractContextManager, contextmanager, nullcontext
+from datetime import date
 
 import pytest
 import uvicorn
 from sqlalchemy import Engine, create_engine, make_url, text
 from sqlalchemy.orm import Session
+from starlette.types import ASGIApp
 
+from server.clock import FixedClock
 from server.config import Settings
 from server.db.migrate import upgrade_to_head
+from server.db.seed_data import build_seed_data
 from server.main import create_app
+from server.repositories.base import Repository, RepositoryProvider
+from server.repositories.memory import InMemoryRepository
 
 TEST_DATABASE = "equipdesk_test"
+TODAY = date(2026, 11, 26)
+"""The fixed "today" for adapter tests; seed data dates are relative to it."""
 
 
 @pytest.fixture
@@ -32,14 +41,24 @@ def _free_port() -> int:
 
 
 @pytest.fixture
-def live_server_url() -> Iterator[str]:
-    """Run the real app (including its lifespan) on a free local port.
+def memory_repo() -> InMemoryRepository:
+    return InMemoryRepository.from_seed(build_seed_data(TODAY))
 
-    The MCP Streamable HTTP client talks real HTTP, so this proves the MCP app
-    is mounted inside FastAPI and that its session manager lifespan runs.
-    """
+
+def provide(repo: Repository) -> RepositoryProvider:
+    """A repository provider that always hands out the same repository."""
+
+    def scope() -> AbstractContextManager[Repository]:
+        return nullcontext(repo)
+
+    return scope
+
+
+@contextmanager
+def serve(app: ASGIApp) -> Iterator[str]:
+    """Run an ASGI app (including its lifespan) with uvicorn on a free local port."""
     port = _free_port()
-    config = uvicorn.Config(create_app(), host="127.0.0.1", port=port, log_level="warning")
+    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -55,6 +74,18 @@ def live_server_url() -> Iterator[str]:
     finally:
         server.should_exit = True
         thread.join(timeout=10)
+
+
+@pytest.fixture
+def live_server_url(memory_repo: InMemoryRepository) -> Iterator[str]:
+    """The real app on a free local port, backed by the in-memory seed data and a
+    fixed clock.
+
+    The MCP Streamable HTTP client talks real HTTP, so this proves the MCP app
+    is mounted inside FastAPI and that its session manager lifespan runs.
+    """
+    with serve(create_app(repositories=provide(memory_repo), clock=FixedClock(TODAY))) as url:
+        yield url
 
 
 @pytest.fixture(scope="session")

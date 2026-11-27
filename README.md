@@ -12,7 +12,7 @@ Work is tracked as tickets EQP-1 to EQP-14 (Linear project EquipDesk).
 
 | Done | Still to come |
 |---|---|
-| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py`<br>**EQP-3:** PostgreSQL schema with Alembic migrations, idempotent demo seed, and repositories (Postgres + in-memory) | The four equipment tools (EQP-4 to EQP-8), the agent (EQP-9 to EQP-12), evals and demo (EQP-13) |
+| **EQP-1:** Docker setup, CI pipeline, FastAPI backend with Swagger, and an MCP server mounted at `/mcp` with a trivial `ping` tool<br>**EQP-2:** [requirements and policy rules](docs/requirements.md) and the fixed code sets in `server/codes.py`<br>**EQP-3:** PostgreSQL schema with Alembic migrations, idempotent demo seed, and repositories (Postgres + in-memory)<br>**EQP-4, EQP-5:** `get_employee_info` as a service, exposed over MCP and REST, with a smoke client | The other three tools (EQP-6 to EQP-8), the agent (EQP-9 to EQP-12), evals and demo (EQP-13) |
 
 `make demo` exists already, but it exits with a "not implemented yet" message until EQP-9.
 
@@ -44,6 +44,15 @@ make seed    # load the catalog, policies and demo employees (dates relative to 
 | http://localhost:8000/docs | Swagger UI (OpenAPI docs) |
 | http://localhost:8000/health | Health check, returns `{"status": "ok"}` |
 | http://localhost:8000/mcp | MCP endpoint (Streamable HTTP), for MCP clients only |
+| http://localhost:8000/v1/employees/E1001 | REST: same result as the `get_employee_info` MCP tool |
+
+Prove the MCP server and a client work together (lists the tools, then calls `get_employee_info` for E1001):
+
+```sh
+make smoke                   # another employee: make smoke EMPLOYEE=E9999
+```
+
+It runs [scripts/smoke_client.py](scripts/smoke_client.py) inside the `api` container. From your machine (needs the local environment): `uv run python -m scripts.smoke_client`.
 
 To call the MCP `ping` tool from Python (needs the local environment; run with `uv run python <file>`):
 
@@ -91,14 +100,17 @@ After changing dependencies in `pyproject.toml`, run `uv lock` and rebuild the i
 | `make logs` | Follow the API logs |
 | `make build` | Build all images |
 | `make seed` | Load demo data, starting `db` and `api` first if needed (the API applies migrations on startup). Safe to rerun: replaces demo data, keeps review tickets |
+| `make smoke` | MCP client lists the tools and calls `get_employee_info` (after `make seed`; `EMPLOYEE=E1002` picks another employee) |
 | `make demo` | Run the agent against the real model (from EQP-9; needs `FOUNDRY_*` env vars) |
 
 ## Project layout
 
 ```
 server/            FastAPI backend
-  main.py          app factory: /health, Swagger, MCP mounted at /mcp
-  mcp_tools.py     MCP tool definitions (currently: ping)
+  main.py          app factory: /health, Swagger, REST routes, MCP mounted at /mcp
+  mcp_tools.py     MCP tool definitions (ping, get_employee_info)
+  rest.py          REST routes (/v1/...), same service functions as the MCP tools
+  services/        business logic: one plain function per tool, errors returned as data
   config.py        settings from environment variables
   codes.py         fixed code sets: verdicts, reason, escalation and error codes
   records.py       plain data records used by repositories and services
@@ -110,7 +122,9 @@ docs/
   requirements.md  requirements, policy rules (R-01 to R-26), codes, worked examples
 agent/             ReAct agent (placeholder until EQP-9)
 tests/             pytest suite (runs in Docker)
-scripts/check.sh   the full lint + type + test check
+scripts/
+  check.sh         the full lint + type + test check
+  smoke_client.py  one-tool MCP client proof (make smoke)
 Dockerfile         multi-stage: base -> test -> runtime
 docker-compose.yml services: db, api, agent (profile "demo"), test (profile "test")
 .github/           CI workflow

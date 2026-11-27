@@ -1,4 +1,4 @@
-.PHONY: help test build up down logs seed demo
+.PHONY: help test build up down logs seed smoke demo
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
@@ -22,6 +22,9 @@ logs: ## Follow api logs
 seed: ## (Re)load demo data; idempotent, keeps review tickets. Starts db + api if needed
 	docker compose up --build --detach --wait api
 	docker compose exec api python -m server.db.seed
+
+smoke: ## One-tool proof: MCP client lists tools and calls get_employee_info (after make seed)
+	docker compose exec api python -m scripts.smoke_client --url http://localhost:8000/mcp --employee-id $(or $(EMPLOYEE),E1001)
 
 demo: ## Run the agent demo against the real model (needs FOUNDRY_* env)
 	docker compose --profile demo run --rm --build agent

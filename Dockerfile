@@ -36,6 +36,7 @@ COPY server ./server
 COPY agent ./agent
 COPY alembic.ini ./
 COPY migrations ./migrations
+COPY scripts/__init__.py scripts/smoke_client.py ./scripts/
 
 RUN useradd --create-home --uid 10001 app
 USER app

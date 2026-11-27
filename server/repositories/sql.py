@@ -1,6 +1,9 @@
 """Postgres repository (SQLAlchemy 2). The caller owns the session and transaction."""
 
-from sqlalchemy import select
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+from sqlalchemy import Engine, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -22,12 +25,22 @@ from server.records import (
     ReviewTicket,
     RolePolicy,
 )
-from server.repositories.base import format_ticket_id, normalize_name, to_utc
+from server.repositories.base import (
+    Repository,
+    RepositoryProvider,
+    format_ticket_id,
+    normalize_name,
+    to_utc,
+)
 
 
 class SqlRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
+
+    @property
+    def session(self) -> Session:
+        return self._session
 
     def get_employee(self, employee_id: str) -> Employee | None:
         row = self._session.get(EmployeeRow, employee_id)
@@ -122,3 +135,20 @@ def _to_ticket(row: ReviewTicketRow) -> ReviewTicket:
         status=row.status,
         created_at=to_utc(row.created_at),
     )
+
+
+def sql_repositories(engine: Engine) -> RepositoryProvider:
+    """One new session per REST request or MCP tool call, closed afterwards.
+
+    Closing rolls back whatever is left, so a database error in one call can
+    never leave a broken session behind for the next (no PendingRollbackError).
+    Nothing is committed here: the read-only tools need no commit, and the
+    ticket-writing tool commits explicitly (EQP-8).
+    """
+
+    @contextmanager
+    def scope() -> Iterator[Repository]:
+        with Session(engine) as session:
+            yield SqlRepository(session)
+
+    return scope
