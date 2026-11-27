@@ -8,7 +8,7 @@ Every rule below has an ID (`R-xx`) and names the tests that cover it. "Planned"
 
 | Field | Source | Example |
 |---|---|---|
-| `employee_id` | Supplied with the request by the calling system (in production: the authenticated user), never parsed from the text | `E1001` |
+| `employee_id` | Supplied with the request by the calling system (in production: the authenticated user), never parsed from the text. Well-formed = `E` followed by 4 digits; surrounding whitespace and letter case are ignored, anything else is `INVALID_INPUT` | `E1001` |
 | `request_text` | Free text written by the employee. Treated as untrusted data, never as instructions | "I need a second monitor" |
 | `role` | Looked up: `get_employee_info` | `engineer` |
 | `hire_date`, `tenure_months` | Looked up: `get_employee_info` | `2019-03-04`, 92 |
@@ -68,7 +68,7 @@ Definitions used by the rules:
 
 | ID | Rule | Outcome | Tests |
 |---|---|---|---|
-| R-01 | The employee ID must exist | `NEEDS_REVIEW` / `EMPLOYEE_NOT_FOUND` | Planned: EQP-4 (`get_employee_info`), EQP-7 |
+| R-01 | The employee ID must exist | `NEEDS_REVIEW` / `EMPLOYEE_NOT_FOUND` | `tests/test_employee_service.py` (`get_employee_info`); Planned: EQP-7 |
 | R-02 | The employee's role must have a policy | `NEEDS_REVIEW` / `UNKNOWN_ROLE` | Planned: EQP-6 (`get_policy_limits`), EQP-7 |
 | R-03 | The requested item must match a catalog item or alias | `NEEDS_REVIEW` / `UNKNOWN_ITEM` | Planned: EQP-7 |
 | R-04 | Records must be consistent: no item on file dated before the hire date or after today, and no hire date after today | `NEEDS_REVIEW` / `CONFLICTING_RECORDS` | Planned: EQP-7 |
@@ -119,7 +119,7 @@ Every draft response (approve, deny or escalate) is checked before it is final. 
 
 | ID | Rule | Outcome | Tests |
 |---|---|---|---|
-| R-24 | Tools never raise. Errors are returned as data: an `ErrorCode` (`INVALID_INPUT`, `NOT_FOUND`, `INTERNAL`), the domain reason code when there is one, and a message | Error result | Planned: EQP-4 to EQP-8 |
+| R-24 | Tools never raise. Errors are returned as data: an `ErrorCode` (`INVALID_INPUT`, `NOT_FOUND`, `INTERNAL`), the domain reason code when there is one, and a message | Error result | `tests/test_employee_service.py`; Planned: EQP-5 to EQP-8 |
 | R-25 | `flag_for_human_review` needs a non-empty reason written as `"<CODE>: explanation"`. Repeating the same employee and request returns the existing open ticket, whatever the reason wording | Ticket with status `PENDING_REVIEW`, stored with the parsed escalation code, or `OTHER` if the code is not recognized | Planned: EQP-8 |
 | R-26 | Codes are closed sets: tools and the agent only use the values in [Codes](#codes) | Fixed sets | `tests/test_codes.py`, `tests/test_requirements_doc.py` |
 
