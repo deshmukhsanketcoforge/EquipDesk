@@ -4,16 +4,13 @@ Both adapters call the same service function, so for every input the REST body
 and the MCP tool result must be the same JSON (errors included, R-24).
 """
 
-import json
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 from mcp import Client
-from mcp.types import CallToolResult, TextContent
 
 from server.clock import FixedClock
 from server.codes import ErrorCode
@@ -23,21 +20,7 @@ from server.records import Employee
 from server.repositories.base import Repository, RepositoryProvider
 from server.repositories.memory import InMemoryRepository
 from server.rest import ERROR_STATUS
-from tests.conftest import TODAY, provide
-
-
-@pytest.fixture
-def client(memory_repo: InMemoryRepository) -> Iterator[TestClient]:
-    app = create_app(repositories=provide(memory_repo), clock=FixedClock(TODAY))
-    with TestClient(app) as test_client:
-        yield test_client
-
-
-def _tool_json(result: CallToolResult) -> Any:
-    texts = [block.text for block in result.content if isinstance(block, TextContent)]
-    assert len(texts) == 1, result
-    return json.loads(texts[0])
-
+from tests.conftest import TODAY, provide, tool_json
 
 # REST
 
@@ -112,7 +95,7 @@ async def test_mcp_tool_returns_the_employee(live_server_url: str) -> None:
         result = await mcp_client.call_tool("get_employee_info", {"employee_id": "E1001"})
 
     assert result.is_error is False
-    payload = _tool_json(result)
+    payload = tool_json(result)
     assert payload["employee_id"] == "E1001"
     assert result.structured_content == {"result": payload}
 
@@ -123,21 +106,23 @@ async def test_mcp_domain_errors_are_data_not_tool_failures(live_server_url: str
         result = await mcp_client.call_tool("get_employee_info", {"employee_id": "E9999"})
 
     assert result.is_error is False
-    assert _tool_json(result)["error"]["reason_code"] == "EMPLOYEE_NOT_FOUND"
+    assert tool_json(result)["error"]["reason_code"] == "EMPLOYEE_NOT_FOUND"
 
 
 # Same payload
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("employee_id", ["E1001", "E1004", "E1005", "e1002 ", "E9999", "bad-id"])
+@pytest.mark.parametrize(
+    "employee_id", ["E1001", "E1004", "E1005", "e1002 ", "E9999", "bad-id", "", "E1001/x"]
+)
 async def test_rest_and_mcp_return_the_same_payload(live_server_url: str, employee_id: str) -> None:
     async with httpx.AsyncClient(base_url=live_server_url) as http:
         rest_body = (await http.get(f"/v1/employees/{employee_id}")).json()
     async with Client(f"{live_server_url}/mcp") as mcp_client:
         result = await mcp_client.call_tool("get_employee_info", {"employee_id": employee_id})
 
-    assert _tool_json(result) == rest_body
+    assert tool_json(result) == rest_body
 
 
 # Never raises, even when opening or closing the repository scope fails (R-24)
@@ -182,7 +167,7 @@ async def test_mcp_scope_failure_is_an_internal_error_result(
         result = await mcp_client.call_tool("get_employee_info", {"employee_id": "E1001"})
 
     assert result.is_error is False
-    error = _tool_json(result)["error"]
+    error = tool_json(result)["error"]
     assert error["code"] == "INTERNAL"
     assert "hunter2" not in error["message"]
 
@@ -190,3 +175,14 @@ async def test_mcp_scope_failure_is_an_internal_error_result(
 def test_every_error_code_has_an_http_status() -> None:
     # ErrorCode is a closed set (D4); adding a code must also give it a status.
     assert set(ERROR_STATUS) == set(ErrorCode)
+
+
+@pytest.mark.parametrize(("path", "status"), [("/v1/employees/", 400), ("/v1/employees/E1/x", 400)])
+def test_rest_empty_or_slashed_id_reaches_the_service(
+    client: TestClient, path: str, status: int
+) -> None:
+    # Not FastAPI's own {"detail": "Not Found"}: the same error data as over MCP.
+    response = client.get(path)
+
+    assert response.status_code == status
+    assert response.json()["error"]["code"] == "INVALID_INPUT"
