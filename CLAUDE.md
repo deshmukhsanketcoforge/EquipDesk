@@ -4,18 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-The repo is pre-implementation: it contains only `PLAN.md`, the lab brief (`Project Requirements.pdf`), a stub README and `.gitignore`. **`PLAN.md` is the source of truth** for scope, decisions, ticket order and the deliverable mapping. Read it before starting any ticket. The commands and layout below are what the plan will create (EQP-1 onward), so verify they exist before relying on them.
+EQP-1 to EQP-9 are done: Docker, CI, the database, all four MCP tools (service, REST and MCP), and the agent's Foundry LLM client, MCP client and one-call proof (`make one-call`). The ReAct loop, guardrails, reflection and evals (EQP-10 to EQP-13) and the evidence pack (EQP-14) are still to come; the README's Status table is the current list. **`PLAN.md` is the source of truth** for scope, decisions, ticket order and the deliverable mapping. Read it before starting any ticket. Commands and modules for later tickets (e.g. `run_demo`, `evals/cases.yaml`) do not exist yet, so verify before relying on them.
 
 ## What this is
 
-W7 CoForge lab: an IT equipment-request handler. A ReAct agent (Claude Sonnet 5.5 via Azure AI Foundry) calls the tools of an MCP server to approve, deny, or escalate natural-language requests. A reflection step checks each draft before it is finalized. The 4 required MCP tools (signatures fixed by the brief): `get_employee_info(employee_id)`, `get_policy_limits(role)`, `check_request_eligibility(employee_id, item)`, `flag_for_human_review(employee_id, request, reason)`.
+W7 CoForge lab: an IT equipment-request handler. A ReAct agent (Claude Opus 5.5, fast-mode deployment, via Azure AI Foundry) calls the tools of an MCP server to approve, deny, or escalate natural-language requests. A reflection step checks each draft before it is finalized. The 4 required MCP tools (signatures fixed by the brief): `get_employee_info(employee_id)`, `get_policy_limits(role)`, `check_request_eligibility(employee_id, item)`, `flag_for_human_review(employee_id, request, reason)`.
 
-## Planned commands (Docker is the canonical environment)
+## Commands (Docker is the canonical environment)
 
 - Tests + lint: `docker compose run --rm test` (ruff, mypy, pytest with coverage). `make test` is a wrapper.
 - Single test: `docker compose run --rm test pytest tests/path/test_x.py::test_name -q`
 - Run stack: `docker compose up` (services `db`, `api`, `agent`). Swagger at `/docs`, MCP at `/mcp`.
-- Seed DB: `make seed` (idempotent). Live demo: `make demo` (runs the `agent` compose service), which needs the `FOUNDRY_*` env vars.
+- Seed DB: `make seed` (idempotent). One-call proof on the real model: `make one-call`. Live demo (from EQP-13): `make demo`. Both run the `agent` compose service and need the `FOUNDRY_*` env vars.
 
 ## Architecture (big picture)
 
@@ -36,4 +36,4 @@ W7 CoForge lab: an IT equipment-request handler. A ReAct agent (Claude Sonnet 5.
 - **TDD for every ticket:** write the failing tests first and confirm they fail for the right reason, then implement, then refactor. Run the full suite in Docker before reporting done.
 - CI is tiered. The deterministic `test` job (fake LLM, Postgres service) is the required merge gate and needs no credentials by default. The separate `live-eval` job uses the `FOUNDRY_*` GitHub secrets (cost accepted by the user) to run the demo cases against the real model. It asserts decision category and reason code, not wording, and each case runs k=3 times. Critical behaviours have zero tolerance: A must approve and B must deny in every run, an escalate case is never approved or denied, case G is never approved, and no run may breach the guardrails. Other cases need at least 2 of 3 full matches, and the suite needs at least 90%. Details are in `PLAN.md` D12. It becomes a required check only after a few stable runs.
 - **Never run `git commit` or `git push`, and never open PRs.** The user reviews and does all of that. Stop after local green and summarize the changes. `main` is branch-protected.
-- Work is tracked as 14 flat Linear tickets (no milestones), one branch per ticket. Foundry endpoint, deployment name and key come from the user when EQP-9 needs them. Until then, only add placeholder config and `.env.example`.
+- Work is tracked as 14 flat Linear tickets (no milestones), one branch per ticket. Foundry endpoint, deployment name and key live in the user's git-ignored `.env` (template: `.env.example`) and, for CI, in GitHub secrets; never read or print them.

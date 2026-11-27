@@ -1,4 +1,4 @@
-.PHONY: help test build up down logs seed smoke demo
+.PHONY: help test build up down logs seed smoke one-call demo
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
@@ -25,6 +25,9 @@ seed: ## (Re)load demo data; idempotent, keeps review tickets. Starts db + api i
 
 smoke: ## One-tool proof: MCP client lists tools and calls get_employee_info (after make seed)
 	docker compose exec api python -m scripts.smoke_client --url http://localhost:8000/mcp --employee-id $(or $(EMPLOYEE),E1001)
+
+one-call: ## One hardcoded request -> one tool call on the real model (needs FOUNDRY_* env)
+	docker compose --profile demo run --rm --build agent python -m agent.one_call $(ARGS)
 
 demo: ## Run the agent demo against the real model (needs FOUNDRY_* env)
 	docker compose --profile demo run --rm --build agent
